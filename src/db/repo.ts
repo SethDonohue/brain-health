@@ -12,9 +12,11 @@ import type {
   CustomActivityKey,
   Intensity,
   IsoWeekday,
+  MealTemplate,
   PlannedSession,
   Profile,
   ProtocolVersion,
+  ServingLog,
   SessionLog,
   SleepLog,
 } from '../domain/types'
@@ -274,4 +276,81 @@ export async function addDrinkPreset(label: string, defaultMg: number, d: BrainH
   const existing = await d.drinkPresets.get(key)
   await d.drinkPresets.put({ key, label: clean, defaultMg, isCustom: true, hidden: false, sort: existing?.sort ?? sort })
   return key
+}
+
+// ---------- MIND diet ----------
+
+export async function addServing(date: string, dietGroupKey: string, amount: number, mealTemplateId?: string, d: BrainHealthDB = db) {
+  const rec: ServingLog = { ...newRecord(), date, dietGroupKey, amount, mealTemplateId, loggedAt: now() }
+  await d.servingLogs.add(rec)
+  return rec.id
+}
+
+/** F4.3 long-press undo: removes the most recent serving of that group on that day. */
+export async function undoLastServing(date: string, dietGroupKey: string, d: BrainHealthDB = db): Promise<boolean> {
+  const rows = alive(await d.servingLogs.where('date').equals(date).toArray()).filter((r) => r.dietGroupKey === dietGroupKey)
+  const last = rows.sort((a, b) => b.loggedAt - a.loggedAt)[0]
+  if (!last) return false
+  await d.servingLogs.update(last.id, { deletedAt: now(), updatedAt: now() })
+  return true
+}
+
+/** F5.2: a template meal adds all its servings at once; returns the ids so the toast can undo them together. */
+export async function logMeal(date: string, template: MealTemplate, enabled: (groupKey: string) => boolean, d: BrainHealthDB = db): Promise<string[]> {
+  const t = now()
+  const rows: ServingLog[] = template.servings
+    .filter((s) => enabled(s.dietGroupKey))
+    .map((s) => ({ ...newRecord(), date, dietGroupKey: s.dietGroupKey, amount: s.amount, mealTemplateId: template.key, loggedAt: t }))
+  await d.servingLogs.bulkAdd(rows)
+  return rows.map((r) => r.id)
+}
+
+export async function deleteServings(ids: string[], d: BrainHealthDB = db) {
+  const t = now()
+  await d.servingLogs.bulkUpdate(ids.map((key) => ({ key, changes: { deletedAt: t, updatedAt: t } })))
+}
+
+// ---------- Strength ----------
+
+/** A strength session in progress is a SessionLog with status 'active', so closing the app never loses it. */
+export async function activeStrength(d: BrainHealthDB = db): Promise<SessionLog | undefined> {
+  const rows = alive(await d.sessionLogs.where('status').equals('active').toArray())
+  return rows.sort((a, b) => b.startAt - a.startAt)[0]
+}
+
+export async function startStrength(plannedSessionId?: string, d: BrainHealthDB = db): Promise<string> {
+  const open = await activeStrength(d)
+  if (open) return open.id
+  const t = now()
+  return logSession({ date: toDateKey(t), activityType: 'strength', startAt: t, durationMin: 0, intensity: 'moderate', plannedSessionId, status: 'active' }, d)
+}
+
+export async function saveSet(
+  sessionId: string,
+  exerciseKey: string,
+  variant: string,
+  setIndex: number,
+  values: { weightKg?: number; reps?: number; holdSec?: number },
+  d: BrainHealthDB = db,
+) {
+  const existing = alive(await d.setLogs.where('sessionId').equals(sessionId).toArray()).find((s) => s.exerciseKey === exerciseKey && s.setIndex === setIndex)
+  if (existing) await d.setLogs.update(existing.id, { variant, ...values, updatedAt: now() })
+  else await d.setLogs.add({ ...newRecord(), sessionId, exerciseKey, variant, setIndex, ...values })
+}
+
+export async function unsaveSet(sessionId: string, exerciseKey: string, setIndex: number, d: BrainHealthDB = db) {
+  const rows = alive(await d.setLogs.where('sessionId').equals(sessionId).toArray()).filter((s) => s.exerciseKey === exerciseKey && s.setIndex === setIndex)
+  for (const r of rows) await d.setLogs.update(r.id, { deletedAt: now(), updatedAt: now() })
+}
+
+export async function finishStrength(id: string, fields: { durationMin: number; intensity: Intensity; rpe?: number; note?: string }, d: BrainHealthDB = db) {
+  // Link to today's planned strength session if the workout wasn't started from one.
+  const s = await d.sessionLogs.get(id)
+  let plannedSessionId = s?.plannedSessionId
+  if (s && !plannedSessionId) {
+    const planned = alive(await d.plannedSessions.where('date').equals(s.date).toArray()).filter((p) => p.activityType === 'strength')
+    const taken = new Set(alive(await d.sessionLogs.where('date').equals(s.date).toArray()).map((l) => l.plannedSessionId))
+    plannedSessionId = planned.find((p) => !taken.has(p.id))?.id
+  }
+  await d.sessionLogs.update(id, { ...fields, plannedSessionId, status: 'done', updatedAt: now() })
 }

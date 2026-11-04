@@ -5,10 +5,11 @@ import { checkRestDay, intenseOnRestDay, plannedStatus, targetProgress } from '.
 import { cutoffsFor } from '../domain/sleepTimes'
 import type { PlannedSession, Profile, ProtocolVersion, SessionLog } from '../domain/types'
 import { db } from '../db/db'
-import { logSession, resetPlanned, skipPlanned, updateSession } from '../db/repo'
+import { logSession, resetPlanned, skipPlanned, startStrength, updateSession } from '../db/repo'
 import { activityOf, useNow, useProfile, useProtocol, useToday, useWeek, type WeekData } from '../hooks'
 import { useUi } from '../store'
 import { Button, cx, intensityColor } from '../ui/primitives'
+import { ResumeCard } from './Train'
 
 export function Today() {
   const today = useToday()
@@ -36,6 +37,8 @@ export function Today() {
           <GearIcon />
         </button>
       </header>
+
+      <ResumeCard />
 
       <section aria-label="This week" className="mt-5 px-4">
         <CardioTrack totals={totals} last={last} profile={profile} />
@@ -220,7 +223,11 @@ function TodayPlan({ today, week, protocol, profile }: { today: string; week: We
             logs={week.logs}
             protocol={protocol}
             lateAt={late}
-            onDone={() => open({ kind: 'log', planned: p })}
+            onDone={async () => {
+              if (p.activityType !== 'strength') return open({ kind: 'log', planned: p })
+              await startStrength(p.id)
+              useUi.getState().setPlayer(true)
+            }}
             onSkip={async () => {
               await skipPlanned(p)
               toast({ message: `${activityOf(protocol, p.activityType)?.label} skipped`, action: { label: 'Undo', run: () => void resetPlanned(p.id) } })
@@ -317,7 +324,7 @@ function PlannedRow({
       ) : (
         <div className="mt-3 flex gap-2">
           <Button onClick={onDone} className="flex-1">
-            {p.activityType === 'strength' ? 'Log workout' : 'Done'}
+            {p.activityType === 'strength' ? 'Start workout' : 'Done'}
           </Button>
           <Button variant="outline" onClick={onMove}>
             Move

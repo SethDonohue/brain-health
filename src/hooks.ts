@@ -54,11 +54,12 @@ export interface WeekData {
   lastWeekLogs: SessionLog[]
 }
 
-export function useWeek(dateKey: string): WeekData | undefined {
+/** A week's plan and logs. `generate` creates the plan from targets if the week has none yet (off for past weeks). */
+export function useWeek(dateKey: string, generate = true): WeekData | undefined {
   const weekStart = weekStartOf(dateKey)
   useEffect(() => {
-    void ensureWeek(dateKey)
-  }, [dateKey])
+    if (generate) void ensureWeek(dateKey)
+  }, [dateKey, generate])
   return useLiveQuery(async () => {
     const [from, to] = weekRange(weekStart)
     const lastStart = addDaysKey(weekStart, -7)

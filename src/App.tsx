@@ -4,25 +4,25 @@ import { normalizeTabOrder } from './domain/sleep'
 import { useProfile } from './hooks'
 import { Onboarding } from './screens/Onboarding'
 import { SettingsSheet } from './screens/Settings'
+import { Eat } from './screens/Eat'
 import { Sleep } from './screens/Sleep'
+import { StrengthPlayer } from './screens/StrengthPlayer'
+import { Train } from './screens/Train'
 import { QuickLogBar, Today } from './screens/Today'
 import { LogSessionSheet } from './sheets/LogSessionSheet'
 import { MoveSheet, RestPickSheet } from './sheets/MoveSheet'
 import { BedtimeSheet, DrinkEditSheet, DrinksSheet, SleepLogSheet } from './sheets/SleepSheets'
+import { AddSessionSheet, ExerciseHistorySheet, PlannedSheet } from './sheets/TrainSheets'
 import { useUi, type Tab } from './store'
 import { cx, ToastHost } from './ui/primitives'
 
 export const TAB_LABELS: Record<Tab, string> = { today: 'Today', sleep: 'Sleep', eat: 'Eat', train: 'Train', week: 'Week' }
 
-const COMING: Record<Exclude<Tab, 'today' | 'sleep'>, string> = {
-  train: 'The week strip, moving sessions and the strength player arrive in the next build.',
-  eat: 'The MIND diet tracker arrives in a coming build.',
-  week: 'The weekly report arrives with reminders in milestone 2.',
-}
+const WEEK_NOTE = 'The weekly report (totals, MIND score, sleep checklist and trends) arrives with reminders in milestone 2.'
 
 export default function App() {
   const profile = useProfile()
-  const { tab, setTab, sheets } = useUi()
+  const { tab, setTab, sheets, player } = useUi()
   const footer = useRef<HTMLDivElement>(null)
   const order = normalizeTabOrder(profile?.tabOrder)
   const home = useRef<Tab>(order[0])
@@ -51,6 +51,7 @@ export default function App() {
     const sub = CapApp.addListener('backButton', () => {
       const s = useUi.getState()
       if (s.sheets.length) s.close()
+      else if (s.player) s.setPlayer(false)
       else if (s.tab !== home.current) s.setTab(home.current)
       else void CapApp.minimizeApp()
     })
@@ -73,10 +74,14 @@ export default function App() {
           <Today />
         ) : tab === 'sleep' ? (
           <Sleep />
+        ) : tab === 'eat' ? (
+          <Eat />
+        ) : tab === 'train' ? (
+          <Train />
         ) : (
           <div className="px-4 pt-6">
             <h1 className="font-display text-3xl font-semibold">{TAB_LABELS[tab]}</h1>
-            <p className="mt-3 text-ink-2">{COMING[tab]}</p>
+            <p className="mt-3 text-ink-2">{WEEK_NOTE}</p>
           </div>
         )}
       </main>
@@ -109,6 +114,10 @@ export default function App() {
       {top?.kind === 'bedtime' && <BedtimeSheet />}
       {top?.kind === 'drinks' && <DrinksSheet />}
       {top?.kind === 'drinkEdit' && <DrinkEditSheet log={top.log} />}
+      {top?.kind === 'planned' && <PlannedSheet planned={top.planned} />}
+      {top?.kind === 'addSession' && <AddSessionSheet date={top.date} />}
+      {top?.kind === 'exerciseHistory' && <ExerciseHistorySheet exerciseKey={top.exerciseKey} />}
+      {player && <StrengthPlayer />}
       <ToastHost />
     </div>
   )

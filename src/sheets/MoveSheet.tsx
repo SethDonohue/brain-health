@@ -3,7 +3,7 @@ import { db } from '../db/db'
 import { alive, movePlanned } from '../db/repo'
 import { fromDateKey, weekDays } from '../domain/dates'
 import { checkRestDay } from '../domain/plan'
-import type { PlannedSession } from '../domain/types'
+import type { ActivityType, PlannedSession } from '../domain/types'
 import { activityOf, useProtocol, useWeek } from '../hooks'
 import { useUi } from '../store'
 import { Button, cx, Sheet } from '../ui/primitives'
@@ -12,24 +12,12 @@ export function MoveSheet({ planned }: { planned: PlannedSession }) {
   const protocol = useProtocol()
   const week = useWeek(planned.date)
   const close = useUi((s) => s.close)
-  const open = useUi((s) => s.open)
-  const toast = useUi((s) => s.showToast)
   if (!protocol || !week) return null
   const label = activityOf(protocol, planned.activityType)?.label ?? ''
 
   const moveTo = async (date: string) => {
-    const from = planned.date
-    await movePlanned(planned.id, date)
     close()
-    const after = alive(await db.plannedSessions.where('weekStart').equals(planned.weekStart).toArray())
-    const check = checkRestDay(planned.weekStart, after, protocol.activityTypes)
-    if (check.conflict && check.candidates.length > 0) {
-      open({ kind: 'restPick', weekStart: planned.weekStart, candidates: check.candidates })
-    }
-    toast({
-      message: `${label} moved to ${format(fromDateKey(date), 'EEEE')}`,
-      action: { label: 'Undo', run: () => void movePlanned(planned.id, from) },
-    })
+    await moveWithRestCheck(planned, date, protocol.activityTypes, label)
   }
 
   return (
@@ -59,6 +47,21 @@ export function MoveSheet({ planned }: { planned: PlannedSession }) {
       </ul>
     </Sheet>
   )
+}
+
+/** Move a planned session, then (F1.2) ask for a new rest day if the move took it over. Used by the sheet and by drag. */
+export async function moveWithRestCheck(planned: PlannedSession, date: string, types: ActivityType[], label: string) {
+  if (date === planned.date) return
+  const { open, showToast } = useUi.getState()
+  const from = planned.date
+  await movePlanned(planned.id, date)
+  const after = alive(await db.plannedSessions.where('weekStart').equals(planned.weekStart).toArray())
+  const check = checkRestDay(planned.weekStart, after, types)
+  if (check.conflict && check.candidates.length > 0) open({ kind: 'restPick', weekStart: planned.weekStart, candidates: check.candidates })
+  showToast({
+    message: `${label} moved to ${format(fromDateKey(date), 'EEEE')}`,
+    action: { label: 'Undo', run: () => void movePlanned(planned.id, from) },
+  })
 }
 
 /** F1.2: after a move lands on the rest day, ask which day becomes the rest day. */

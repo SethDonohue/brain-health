@@ -186,7 +186,7 @@ export function ToastHost() {
   const toast = useUi((s) => s.toast)
   const clear = useUi((s) => s.clearToast)
   // With a sheet open, the bottom holds the sheet's own buttons, so toasts move to the top.
-  const sheetOpen = useUi((s) => s.sheets.length > 0)
+  const sheetOpen = useUi((s) => s.sheets.length > 0 || s.player)
   useEffect(() => {
     if (!toast) return
     const id = setTimeout(clear, 6000)

@@ -38,4 +38,6 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Rest-timer buzz in the strength player -->
+    <uses-permission android:name="android.permission.VIBRATE" />
 </manifest>

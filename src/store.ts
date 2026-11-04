@@ -12,6 +12,9 @@ export type Sheet =
   | { kind: 'bedtime' }
   | { kind: 'drinks' }
   | { kind: 'drinkEdit'; log: CaffeineLog }
+  | { kind: 'planned'; planned: PlannedSession }
+  | { kind: 'addSession'; date: string }
+  | { kind: 'exerciseHistory'; exerciseKey: string }
 
 export interface Toast {
   id: number
@@ -24,6 +27,9 @@ interface UiState {
   tab: Tab
   sheets: Sheet[]
   toast?: Toast
+  /** the full-screen strength player (the session itself lives in the database) */
+  player: boolean
+  setPlayer: (open: boolean) => void
   setTab: (t: Tab) => void
   open: (s: Sheet) => void
   close: () => void
@@ -36,7 +42,10 @@ let toastSeq = 0
 export const useUi = create<UiState>((set) => ({
   tab: 'today',
   sheets: [],
-  setTab: (tab) => set({ tab }),
+  player: false,
+  // A toast belongs to the screen it came from: switching tabs or opening the player clears it.
+  setPlayer: (player) => set(player ? { player, toast: undefined } : { player }),
+  setTab: (tab) => set({ tab, toast: undefined }),
   open: (s) => set((st) => ({ sheets: [...st.sheets, s] })),
   close: () => set((st) => ({ sheets: st.sheets.slice(0, -1) })),
   showToast: (t) => set({ toast: { ...t, id: ++toastSeq } }),
