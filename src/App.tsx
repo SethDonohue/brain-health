@@ -8,6 +8,7 @@ import { Eat } from './screens/Eat'
 import { Sleep } from './screens/Sleep'
 import { StrengthPlayer } from './screens/StrengthPlayer'
 import { Train } from './screens/Train'
+import { Week } from './screens/Week'
 import { QuickLogBar, Today } from './screens/Today'
 import { LogSessionSheet } from './sheets/LogSessionSheet'
 import { MoveSheet, RestPickSheet } from './sheets/MoveSheet'
@@ -18,7 +19,6 @@ import { cx, ToastHost } from './ui/primitives'
 
 export const TAB_LABELS: Record<Tab, string> = { today: 'Today', sleep: 'Sleep', eat: 'Eat', train: 'Train', week: 'Week' }
 
-const WEEK_NOTE = 'The weekly report (totals, MIND score, sleep checklist and trends) arrives with reminders in milestone 2.'
 
 export default function App() {
   const profile = useProfile()
@@ -79,10 +79,7 @@ export default function App() {
         ) : tab === 'train' ? (
           <Train />
         ) : (
-          <div className="px-4 pt-6">
-            <h1 className="font-display text-3xl font-semibold">{TAB_LABELS[tab]}</h1>
-            <p className="mt-3 text-ink-2">{WEEK_NOTE}</p>
-          </div>
+          <Week />
         )}
       </main>
 

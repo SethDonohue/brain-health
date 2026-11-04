@@ -102,3 +102,22 @@ describe('servings and strength storage', () => {
     expect((await d.sessionLogs.get(id))!.plannedSessionId).toBeDefined()
   })
 })
+
+describe('backup', () => {
+  it('round-trips every table losslessly', async () => {
+    const { buildBackup, restoreBackup } = await import('../backup')
+    const { logSession, addServing, saveSleepLog } = await import('../repo')
+    const a = new BrainHealthDB('t7')
+    await ensureSeed(a)
+    await ensureWeek('2026-11-04', a)
+    await logSession({ date: '2026-11-04', activityType: 'pickleball', startAt: 1, durationMin: 120, intensity: 'moderate' }, a)
+    await addServing('2026-11-04', 'nuts', 1, undefined, a)
+    await saveSleepLog({ night: '2026-11-03', bedAt: 1, wakeAt: 2, quality: 4 }, a)
+    const backup = JSON.parse(JSON.stringify(await buildBackup(a)))
+    const b = new BrainHealthDB('t8')
+    await ensureSeed(b)
+    await restoreBackup(backup, b)
+    expect(JSON.parse(JSON.stringify(await buildBackup(b))).tables).toEqual(backup.tables)
+    await expect(restoreBackup({ app: 'other' }, b)).rejects.toThrow()
+  })
+})

@@ -1,4 +1,10 @@
 import Dexie, { type EntityTable } from 'dexie'
+
+export interface SuggestionState {
+  id: string
+  status: 'dismissed'
+  at: number
+}
 import type {
   CaffeineLog,
   ChecklistLog,
@@ -25,6 +31,7 @@ export class BrainHealthDB extends Dexie {
   drinkPresets!: EntityTable<DrinkPreset, 'key'>
   caffeineLogs!: EntityTable<CaffeineLog, 'id'>
   customActivities!: EntityTable<CustomActivity, 'key'>
+  suggestions!: EntityTable<SuggestionState, 'id'>
 
   constructor(name = 'brain-health') {
     super(name)
@@ -43,6 +50,8 @@ export class BrainHealthDB extends Dexie {
     })
     // v2: user-defined activity types (hike, swim…).
     this.version(2).stores({ customActivities: 'key' })
+    // v3: dismissed plan suggestions (F6.6), keyed by rule and week.
+    this.version(3).stores({ suggestions: 'id' })
   }
 }
 

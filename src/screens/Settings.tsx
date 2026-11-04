@@ -1,3 +1,5 @@
+import { useRef, useState } from 'react'
+import { backupName, buildBackup, restoreBackup, shareFile, type Backup } from '../db/backup'
 import { db } from '../db/db'
 import { alive, movePlanned, removeCustomActivity, restoreCustomActivity, updateProfile } from '../db/repo'
 import { dateForWeekday, todayKey, weekdayLong, weekStartOf } from '../domain/dates'
@@ -6,7 +8,7 @@ import { DEFAULT_TAB_ORDER } from '../domain/types'
 import type { CustomActivityKey, IsoWeekday, Profile, TabKey, Units } from '../domain/types'
 import { useProfile, useProtocol } from '../hooks'
 import { useUi } from '../store'
-import { Field, intensityColor, Segmented, Sheet, Stepper, Toggle } from '../ui/primitives'
+import { Button, Field, intensityColor, Segmented, Sheet, Stepper, Toggle } from '../ui/primitives'
 
 export const UNIT_OPTIONS: { value: Units; label: string }[] = [
   { value: 'imperial', label: 'Imperial (lb, mi, °F)' },
@@ -77,6 +79,8 @@ export function SettingsSheet() {
       <div className="mb-6 border-t border-line pt-2">
         <Toggle label="Track wine (at most 1 glass a day)" checked={p.wineEnabled} onChange={(wineEnabled) => set({ wineEnabled })} />
       </div>
+
+      <BackupRestore />
 
       <p className="pb-4 text-sm text-ink-3">
         This app tracks habits and is not a medical device. Check with a doctor before starting a demanding programme. Your data stays on this phone.
@@ -185,5 +189,77 @@ function Chevron({ up }: { up?: boolean }) {
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
       <path d={up ? 'M5 12.5l5-5 5 5' : 'M5 7.5l5 5 5-5'} />
     </svg>
+  )
+}
+
+/** Export a full backup, or replace everything on this phone with one (two taps, with what's in the file shown first). */
+function BackupRestore() {
+  const toast = useUi((s) => s.showToast)
+  const input = useRef<HTMLInputElement>(null)
+  const [pending, setPending] = useState<{ backup: Backup; rows: number } | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  const pick = async (file: File | undefined) => {
+    setError(null)
+    setPending(null)
+    if (!file) return
+    try {
+      const backup = JSON.parse(await file.text()) as Backup
+      if (backup?.app !== 'brain-health' || !backup.tables) throw new Error('That file isn’t a Brain Health backup.')
+      setPending({ backup, rows: Object.values(backup.tables).reduce((a, t) => a + (Array.isArray(t) ? t.length : 0), 0) })
+    } catch (e) {
+      setError(e instanceof SyntaxError ? 'That file isn’t a Brain Health backup.' : (e as Error).message)
+    } finally {
+      if (input.current) input.current.value = ''
+    }
+  }
+
+  const restore = async () => {
+    if (!pending) return
+    try {
+      await restoreBackup(pending.backup)
+      window.location.reload()
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
+
+  return (
+    <Field label="Backup and restore" hint="Restoring replaces everything on this phone with the backup.">
+      <div className="flex flex-col gap-2">
+        <Button
+          variant="outline"
+          onClick={async () => {
+            try {
+              await shareFile(backupName(), JSON.stringify(await buildBackup()), 'application/json')
+            } catch (e) {
+              if (!/cancel/i.test(String(e))) toast({ message: `Export failed: ${(e as Error).message}` })
+            }
+          }}
+        >
+          Export full backup
+        </Button>
+        <Button variant="outline" onClick={() => input.current?.click()}>
+          Restore from a backup file
+        </Button>
+        <input ref={input} type="file" accept="application/json,.json" className="hidden" onChange={(e) => void pick(e.target.files?.[0])} />
+      </div>
+      {error && <p className="mt-2 text-sm text-red">{error}</p>}
+      {pending && (
+        <div className="mt-3 rounded-xl bg-amber-soft p-3 text-sm">
+          <p>
+            Backup from {new Date(pending.backup.exportedAt).toLocaleString()}, {pending.rows} records. This replaces all data on this phone.
+          </p>
+          <div className="mt-2 flex gap-2">
+            <Button variant="quiet" onClick={() => setPending(null)}>
+              Cancel
+            </Button>
+            <Button className="flex-1" onClick={() => void restore()}>
+              Replace and restore
+            </Button>
+          </div>
+        </div>
+      )}
+    </Field>
   )
 }

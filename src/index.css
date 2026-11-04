@@ -25,6 +25,8 @@
   --red: #b3261e;
   --red-soft: #f6d6d3;
   --focus: #1e7f86;
+  /* chart bars: validated for chroma and contrast against the surface */
+  --chart: #00909a;
   color-scheme: light;
 }
 
@@ -47,6 +49,7 @@
     --red: #f08a82;
     --red-soft: #45201d;
     --focus: #4cb5bb;
+    --chart: #12a0aa;
     color-scheme: dark;
   }
 }
