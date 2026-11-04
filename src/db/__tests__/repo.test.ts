@@ -121,3 +121,21 @@ describe('backup', () => {
     await expect(restoreBackup({ app: 'other' }, b)).rejects.toThrow()
   })
 })
+
+describe('editable diet targets', () => {
+  it('saves a new protocol version, undoes it, and keeps v1', async () => {
+    const { saveDietTargets, dropProtocolVersion, currentProtocol, seedDietTargets } = await import('../repo')
+    const d = new BrainHealthDB('t9')
+    await ensureSeed(d)
+    const v = await saveDietTargets({ leafy_greens: 8, red_meat: 2 }, d)
+    expect(v).toBe(2)
+    const p = await currentProtocol(d)
+    expect(p.dietGroups.find((g) => g.key === 'leafy_greens')!.target).toBe(8)
+    expect(p.dietGroups.find((g) => g.key === 'nuts')!.target).toBe(5)
+    await dropProtocolVersion(v, d)
+    expect((await currentProtocol(d)).version).toBe(1)
+    await dropProtocolVersion(1, d)
+    expect(await d.protocols.count()).toBe(1)
+    expect(seedDietTargets().leafy_greens).toBe(6)
+  })
+})

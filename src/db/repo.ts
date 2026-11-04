@@ -354,3 +354,29 @@ export async function finishStrength(id: string, fields: { durationMin: number; 
   }
   await d.sessionLogs.update(id, { ...fields, plannedSessionId, status: 'done', updatedAt: now() })
 }
+
+// ---------- Protocol edits ----------
+
+/**
+ * Save new diet targets as a new protocol version effective today. Earlier versions stay, so logs keep the
+ * version they were made under. Returns the new version number (for undo).
+ */
+export async function saveDietTargets(targets: Record<string, number>, d: BrainHealthDB = db): Promise<number> {
+  const cur = await currentProtocol(d)
+  const next: ProtocolVersion = {
+    ...cur,
+    version: cur.version + 1,
+    effectiveFrom: toDateKey(Date.now()),
+    dietGroups: cur.dietGroups.map((g) => (targets[g.key] != null ? { ...g, target: targets[g.key] } : g)),
+  }
+  await d.protocols.put(validateProtocol(next))
+  return next.version
+}
+
+/** Undo a just-saved edit: drop that version so the previous one is current again. Never removes v1. */
+export async function dropProtocolVersion(version: number, d: BrainHealthDB = db) {
+  if (version > 1) await d.protocols.delete(version)
+}
+
+/** The diet targets as first seeded from the protocol document. */
+export const seedDietTargets = (): Record<string, number> => Object.fromEntries(protocolV1.dietGroups.map((g) => [g.key, g.target]))

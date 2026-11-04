@@ -14,6 +14,7 @@ import { LogSessionSheet } from './sheets/LogSessionSheet'
 import { MoveSheet, RestPickSheet } from './sheets/MoveSheet'
 import { BedtimeSheet, DrinkEditSheet, DrinksSheet, SleepLogSheet } from './sheets/SleepSheets'
 import { AddSessionSheet, ExerciseHistorySheet, PlannedSheet } from './sheets/TrainSheets'
+import { EditTargetsSheet, MindAboutSheet } from './sheets/EatSheets'
 import { useUi, type Tab } from './store'
 import { cx, ToastHost } from './ui/primitives'
 
@@ -114,6 +115,8 @@ export default function App() {
       {top?.kind === 'planned' && <PlannedSheet planned={top.planned} />}
       {top?.kind === 'addSession' && <AddSessionSheet date={top.date} />}
       {top?.kind === 'exerciseHistory' && <ExerciseHistorySheet exerciseKey={top.exerciseKey} />}
+      {top?.kind === 'editTargets' && <EditTargetsSheet />}
+      {top?.kind === 'mindAbout' && <MindAboutSheet />}
       {player && <StrengthPlayer />}
       <ToastHost />
     </div>

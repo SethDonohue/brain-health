@@ -15,6 +15,8 @@ export type Sheet =
   | { kind: 'planned'; planned: PlannedSession }
   | { kind: 'addSession'; date: string }
   | { kind: 'exerciseHistory'; exerciseKey: string }
+  | { kind: 'editTargets' }
+  | { kind: 'mindAbout' }
 
 export interface Toast {
   id: number

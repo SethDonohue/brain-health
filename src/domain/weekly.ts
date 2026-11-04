@@ -1,5 +1,6 @@
 import { weekTotals, type WeekTotals } from './cardio'
 import { addDaysKey, weekDays } from './dates'
+import { bandPoints, MIND_BANDS } from './mind'
 import { intenseOnRestDay } from './plan'
 import { currentNight, nightFlags } from './sleep'
 import type {
@@ -55,20 +56,18 @@ export function mindScore(groups: DietGroup[], servings: ServingLog[], daysElaps
   const daysWith = (k: string) => new Set(servings.filter((s) => !s.deletedAt && s.dietGroupKey === k).map((s) => s.date)).size
   const perDay = (k: string) => total(k) / days
   const n = (v: number, unit = 'serving') => `${v} ${v === 1 ? unit : `${unit}s`}`
-  const pts = (v: number, full: (v: number) => boolean, half: (v: number) => boolean): 0 | 0.5 | 1 => (full(v) ? 1 : half(v) ? 0.5 : 0)
 
+  // Standard groups score straight from the shared study bands; olive oil and wine have their own rules.
+  const standard = (k: string) => {
+    const b = MIND_BANDS[k]
+    const v = b.basis === 'day' ? perDay(k) : total(k)
+    const unit = k === 'butter' ? 'tbsp' : 'serving'
+    const detail = b.basis === 'day' ? `${r1(v)}${unit === 'tbsp' ? ' tbsp' : ''} a day` : n(v)
+    return { points: bandPoints(b, v), detail }
+  }
   const rules: Record<string, () => { points: 0 | 0.5 | 1; detail: string }> = {
-    leafy_greens: () => ({ points: pts(total('leafy_greens'), (v) => v >= 6, (v) => v >= 3), detail: n(total('leafy_greens')) }),
-    // published: ≥1 a day full, 5–6 a week half; scaled to the days so far
-    other_veg: () => ({ points: pts(perDay('other_veg'), (v) => v >= 1, (v) => v >= 5 / 7), detail: `${r1(perDay('other_veg'))} a day` }),
-    berries: () => ({ points: pts(total('berries'), (v) => v >= 2, (v) => v >= 1), detail: n(total('berries')) }),
-    nuts: () => ({ points: pts(total('nuts'), (v) => v >= 5, (v) => v >= 1), detail: n(total('nuts')) }),
     // "primary oil": counted when it was the main oil on at least half the days
     olive_oil: () => ({ points: daysWith('olive_oil') >= Math.ceil(days / 2) ? 1 : 0, detail: `${daysWith('olive_oil')} of ${days} days` }),
-    whole_grains: () => ({ points: pts(perDay('whole_grains'), (v) => v >= 3, (v) => v >= 1), detail: `${r1(perDay('whole_grains'))} a day` }),
-    fish: () => ({ points: total('fish') >= 1 ? 1 : 0, detail: n(total('fish')) }),
-    beans: () => ({ points: pts(total('beans'), (v) => v > 3, (v) => v >= 1), detail: n(total('beans')) }),
-    poultry: () => ({ points: pts(total('poultry'), (v) => v >= 2, (v) => v >= 1), detail: n(total('poultry')) }),
     wine: () => {
       const byDay = new Map<string, number>()
       for (const s of servings.filter((x) => !x.deletedAt && x.dietGroupKey === 'wine')) byDay.set(s.date, (byDay.get(s.date) ?? 0) + s.amount)
@@ -78,12 +77,8 @@ export function mindScore(groups: DietGroup[], servings: ServingLog[], daysElaps
       const points: 0 | 0.5 | 1 = overOne || t === 0 ? 0 : t / days >= 1 ? 1 : 0.5
       return { points, detail: `${t} ${t === 1 ? 'glass' : 'glasses'}` }
     },
-    butter: () => ({ points: pts(perDay('butter'), (v) => v < 1, (v) => v <= 2), detail: `${r1(perDay('butter'))} tbsp a day` }),
-    cheese: () => ({ points: pts(total('cheese'), (v) => v < 1, (v) => v <= 6), detail: n(total('cheese')) }),
-    red_meat: () => ({ points: pts(total('red_meat'), (v) => v < 4, (v) => v <= 6), detail: n(total('red_meat')) }),
-    fried: () => ({ points: pts(total('fried'), (v) => v < 1, (v) => v <= 3), detail: n(total('fried')) }),
-    sweets: () => ({ points: pts(total('sweets'), (v) => v < 5, (v) => v <= 6), detail: n(total('sweets')) }),
   }
+  for (const k of Object.keys(MIND_BANDS)) if (!rules[k]) rules[k] = () => standard(k)
 
   const counted = groups.filter((g) => rules[g.key] && (g.key !== 'wine' || wineEnabled))
   const out = counted.map((g) => ({ key: g.key, label: g.label, ...rules[g.key]() }))

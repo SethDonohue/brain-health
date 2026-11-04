@@ -27,6 +27,10 @@
   --focus: #1e7f86;
   /* chart bars: validated for chroma and contrast against the surface */
   --chart: #00909a;
+  /* MIND study bands: one hue, light to dark for 0, ½ and 1 point */
+  --band-0: #dfe5ea;
+  --band-half: #8fcbd0;
+  --band-full: #00909a;
   color-scheme: light;
 }
 
@@ -50,6 +54,9 @@
     --red-soft: #45201d;
     --focus: #4cb5bb;
     --chart: #12a0aa;
+    --band-0: #3a4756;
+    --band-half: #23757c;
+    --band-full: #19b0ba;
     color-scheme: dark;
   }
 }

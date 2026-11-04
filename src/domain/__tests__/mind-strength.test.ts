@@ -58,3 +58,30 @@ describe('strength', () => {
     expect(targetLabel(core, core.variants[0])).toBe('3 × 45–60 s')
   })
 })
+
+describe('MIND study bands', async () => {
+  const { MIND_BANDS, bandPoints, bandZones, bandText, trackMax } = await import('../mind')
+  it('scores at the published cut-offs', () => {
+    expect([2, 3, 5, 6].map((v) => bandPoints(MIND_BANDS.leafy_greens, v))).toEqual([0, 0.5, 0.5, 1])
+    expect([3, 4, 6, 7].map((v) => bandPoints(MIND_BANDS.red_meat, v))).toEqual([1, 0.5, 0.5, 0])
+    expect([0.5, 1, 2, 2.5].map((v) => bandPoints(MIND_BANDS.butter, v))).toEqual([1, 0.5, 0.5, 0])
+  })
+  it('lays zones end to end on the track', () => {
+    expect(bandZones(MIND_BANDS.red_meat, 10)).toEqual([
+      { from: 0, to: 4, points: 1 },
+      { from: 4, to: 7, points: 0.5 },
+      { from: 7, to: 10, points: 0 },
+    ])
+    expect(bandZones(MIND_BANDS.butter, 4, 0.5).map((z) => z.to)).toEqual([1, 2.5, 4])
+    expect(bandZones(MIND_BANDS.fish, 3).map((z) => z.points)).toEqual([0, 1])
+  })
+  it('leaves room for the target and the value', () => {
+    expect(trackMax(MIND_BANDS.leafy_greens, 10, 2)).toBe(12)
+    expect(trackMax(MIND_BANDS.leafy_greens, 6, 20)).toBeCloseTo(21.6)
+  })
+  it('describes the full-point cut-off', () => {
+    expect(bandText(MIND_BANDS.leafy_greens, 'serving')).toBe('full point at 6+ a week')
+    expect(bandText(MIND_BANDS.butter, 'tbsp')).toBe('full point under 1 tbsp a day')
+    expect(MIND_BANDS.wine).toBeUndefined()
+  })
+})
