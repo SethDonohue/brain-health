@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Brain Health</string>
+    <string name="title_activity_main">Brain Health</string>
+    <string name="package_name">com.sethdonohue.brainhealth</string>
+    <string name="custom_url_scheme">com.sethdonohue.brainhealth</string>
+</resources>

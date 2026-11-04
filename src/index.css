@@ -1,0 +1,125 @@
+@import "tailwindcss";
+@import "@fontsource-variable/bricolage-grotesque";
+
+/* Tokens: overcast-morning base; teal = moderate, plum = vigorous, slate = light/neutral. */
+:root {
+  /* Capacitor's SystemBars plugin injects --safe-area-inset-*; fall back to env() elsewhere. */
+  --sat: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --sab: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  /* Height of the docked footer (quick-log row + tabs + bottom inset), measured at runtime. */
+  --footer-h: 72px;
+  --bg: #eef2f5;
+  --surface: #ffffff;
+  --sunk: #e2e8ed;
+  --ink: #17212b;
+  --ink-2: #4a5866;
+  --ink-3: #7b8895;
+  --line: #d3dbe2;
+  --moderate: #1e7f86;
+  --moderate-soft: #cfe7e8;
+  --vigorous: #8e3b79;
+  --vigorous-soft: #ecd5e6;
+  --light: #8a97a3;
+  --amber: #b26a00;
+  --amber-soft: #f6e6c8;
+  --red: #b3261e;
+  --red-soft: #f6d6d3;
+  --focus: #1e7f86;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #10161d;
+    --surface: #18212b;
+    --sunk: #0b1016;
+    --ink: #e8eef3;
+    --ink-2: #aab6c1;
+    --ink-3: #7c8995;
+    --line: #2a3542;
+    --moderate: #4cb5bb;
+    --moderate-soft: #183d41;
+    --vigorous: #d07cba;
+    --vigorous-soft: #3d2238;
+    --light: #7c8995;
+    --amber: #e3a640;
+    --amber-soft: #3b2d14;
+    --red: #f08a82;
+    --red-soft: #45201d;
+    --focus: #4cb5bb;
+    color-scheme: dark;
+  }
+}
+
+@theme {
+  --font-display: "Bricolage Grotesque Variable", system-ui, sans-serif;
+  --font-sans: system-ui, -apple-system, "Roboto", "Segoe UI", sans-serif;
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-sunk: var(--sunk);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-line: var(--line);
+  --color-moderate: var(--moderate);
+  --color-moderate-soft: var(--moderate-soft);
+  --color-vigorous: var(--vigorous);
+  --color-vigorous-soft: var(--vigorous-soft);
+  --color-light: var(--light);
+  --color-amber: var(--amber);
+  --color-amber-soft: var(--amber-soft);
+  --color-red: var(--red);
+  --color-red-soft: var(--red-soft);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+
+.num {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .sheet-in {
+    animation: sheet-in 180ms ease-out;
+  }
+  .toast-in {
+    animation: toast-in 160ms ease-out;
+  }
+}
+
+@keyframes sheet-in {
+  from {
+    transform: translateY(24px);
+    opacity: 0.6;
+  }
+}
+
+@keyframes toast-in {
+  from {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+}
+
+input[type="range"] {
+  accent-color: var(--moderate);
+}
