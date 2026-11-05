@@ -2,9 +2,9 @@ import { format } from 'date-fns'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useRef, useState } from 'react'
 import { db } from '../db/db'
-import { activeStrength, alive, startStrength } from '../db/repo'
+import { activeStrength, alive, repeatLastWeek, saveUsualWeek, startStrength, undoPlanChange } from '../db/repo'
 import { weekTotals } from '../domain/cardio'
-import { addDaysKey, formatDuration, fromDateKey, weekDays } from '../domain/dates'
+import { addDaysKey, formatClock, formatDuration, fromDateKey, weekDays } from '../domain/dates'
 import { checkRestDay, plannedStatus, targetProgress } from '../domain/plan'
 import { historyFor, targetLabel } from '../domain/strength'
 import type { PlannedSession, Profile, ProtocolVersion, SessionLog, SetLog } from '../domain/types'
@@ -50,6 +50,7 @@ export function Train() {
       <ResumeCard />
       <Targets week={week} protocol={protocol} profile={profile} />
       <Planner week={week} protocol={protocol} today={today} editable={offset >= 0} />
+      {offset >= 0 && <PlanTools weekStart={week.weekStart} hasUsual={!!profile.usualWeek?.length} />}
       <Strength protocol={protocol} profile={profile} week={week} today={today} />
     </div>
   )
@@ -289,7 +290,47 @@ function PlanChip({ p, protocol, logs, lifted, onPointerDown }: { p: PlannedSess
       )}
     >
       {label}
+      {p.startTime && <span className="font-normal text-ink-2"> {formatClock(p.startTime)}</span>}
     </button>
+  )
+}
+
+/** Import bookings, repeat last week, save the usual week. */
+function PlanTools({ weekStart, hasUsual }: { weekStart: string; hasUsual: boolean }) {
+  const open = useUi((s) => s.open)
+  const toast = useUi((s) => s.showToast)
+  const repeat = async () => {
+    const change = await repeatLastWeek(weekStart)
+    if (!change) return toast({ message: 'Last week has no plan to copy' })
+    toast({ message: `Copied last week's plan, ${change.added.length} sessions`, action: { label: 'Undo', run: () => void undoPlanChange(change) } })
+  }
+  const saveUsual = async () => {
+    const n = await saveUsualWeek(weekStart)
+    toast({ message: `Saved as your usual week, ${n} sessions. New weeks start from it.` })
+  }
+  return (
+    <section aria-label="Plan tools" className="mt-3 px-4">
+      <div className="rounded-2xl bg-surface p-4">
+        <div className="font-medium">Booked a court or class?</div>
+        <p className="mt-1 text-sm text-ink-2">
+          Take a screenshot of your bookings, tap Share and pick Brain Health. Or add it here from a screenshot, a file or pasted text. You'll check everything before it's added.
+        </p>
+        <Button onClick={() => open({ kind: 'import', mode: 'sessions' })} className="mt-3 w-full">
+          Import bookings
+        </Button>
+        <div className="mt-2 grid grid-cols-[repeat(auto-fit,minmax(9rem,1fr))] gap-2">
+          <Button variant="outline" onClick={() => void repeat()}>
+            Repeat last week
+          </Button>
+          <Button variant="outline" onClick={() => void saveUsual()}>
+            {hasUsual ? 'Update usual week' : 'Save as usual week'}
+          </Button>
+        </div>
+        <p className="mt-2 text-xs text-ink-3">
+          {hasUsual ? 'New weeks start from your usual week. Reset it in Settings.' : 'New weeks start from your protocol. Save a week you like as your usual week.'}
+        </p>
+      </div>
+    </section>
   )
 }
 

@@ -44,12 +44,12 @@ function Form({
 
   const [type, setType] = useState<ActivityKey>(initialType)
   const [date, setDate] = useState(edit?.date ?? planned?.date ?? todayKey())
-  const [duration, setDuration] = useState(edit?.durationMin ?? durationFor(initialType))
+  const [duration, setDuration] = useState(edit?.durationMin ?? planned?.durationMin ?? durationFor(initialType))
   const defaultStart = () => {
     const d = new Date(Date.now() - duration * 60_000)
     return format(d, 'HH:mm')
   }
-  const [start, setStart] = useState(edit ? format(edit.startAt, 'HH:mm') : defaultStart())
+  const [start, setStart] = useState(edit ? format(edit.startAt, 'HH:mm') : (planned?.startTime ?? defaultStart()))
   const [intensity, setIntensity] = useState<Intensity>(edit?.intensity ?? activityOf(protocol, initialType)!.defaultIntensity)
   const [useRpe, setUseRpe] = useState(edit?.rpe != null)
   const [rpe, setRpe] = useState(edit?.rpe ?? 6)

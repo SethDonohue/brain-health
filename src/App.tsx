@@ -14,8 +14,10 @@ import { LogSessionSheet } from './sheets/LogSessionSheet'
 import { MoveSheet, RestPickSheet } from './sheets/MoveSheet'
 import { BedtimeSheet, DrinkEditSheet, DrinksSheet, SleepLogSheet } from './sheets/SleepSheets'
 import { AddSessionSheet, ExerciseHistorySheet, PlannedSheet } from './sheets/TrainSheets'
-import { EditTargetsSheet, MindAboutSheet } from './sheets/EatSheets'
+import { EditMealsSheet, EditTargetsSheet, MindAboutSheet } from './sheets/EatSheets'
+import { ImportSheet } from './sheets/ImportSheet'
 import { useUi, type Tab } from './store'
+import { onShared } from './ai/shareIn'
 import { cx, ToastHost } from './ui/primitives'
 
 export const TAB_LABELS: Record<Tab, string> = { today: 'Today', sleep: 'Sleep', eat: 'Eat', train: 'Train', week: 'Week' }
@@ -60,6 +62,19 @@ export default function App() {
       void sub.then((h) => h.remove())
     }
   }, [])
+
+  // Something shared to Brain Health from another app opens the import preview.
+  const onboarded = !!profile?.onboarded
+  useEffect(() => {
+    if (!onboarded) return
+    return onShared((input) => {
+      const ui = useUi.getState()
+      if (!input) return ui.showToast({ message: 'That can’t be imported. Share a screenshot, photo, PDF or text.' })
+      ui.setPlayer(false)
+      // a recipe shared as text or a photo still defaults to bookings; the sheet lets you switch
+      ui.open({ kind: 'import', mode: 'sessions', shared: input })
+    })
+  }, [onboarded])
 
   if (!profile) return null
   if (!profile.onboarded) return <Onboarding profile={profile} />
@@ -117,6 +132,8 @@ export default function App() {
       {top?.kind === 'exerciseHistory' && <ExerciseHistorySheet exerciseKey={top.exerciseKey} />}
       {top?.kind === 'editTargets' && <EditTargetsSheet />}
       {top?.kind === 'mindAbout' && <MindAboutSheet />}
+      {top?.kind === 'editMeals' && <EditMealsSheet />}
+      {top?.kind === 'import' && <ImportSheet key={sheets.length} mode={top.mode} shared={top.shared} />}
       {player && <StrengthPlayer />}
       <ToastHost />
     </div>

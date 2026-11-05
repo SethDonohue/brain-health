@@ -1,6 +1,6 @@
 import { ulid } from 'ulid'
 import { addDaysKey, toDateKey, weekStartOf } from '../domain/dates'
-import { generateWeek } from '../domain/plan'
+import { generateWeek, slotOf, usualFromWeek, weekFromUsual } from '../domain/plan'
 import { protocolV1, validateProtocol } from '../domain/protocol.v1'
 import { DEFAULT_TAB_ORDER } from '../domain/types'
 import type {
@@ -19,6 +19,7 @@ import type {
   ServingLog,
   SessionLog,
   SleepLog,
+  Slot,
 } from '../domain/types'
 import { db, type BrainHealthDB } from './db'
 
@@ -83,7 +84,7 @@ export async function ensureWeek(dateKey: string, d: BrainHealthDB = db): Promis
     const existing = await d.plannedSessions.where('weekStart').equals(weekStart).count()
     if (existing > 0) return
     const [protocol, profile] = await Promise.all([currentProtocol(d), getProfile(d)])
-    const drafts = generateWeek(weekStart, protocol.weeklyTargets, profile.restDay)
+    const drafts = profile.usualWeek?.length ? weekFromUsual(weekStart, profile.usualWeek) : generateWeek(weekStart, protocol.weeklyTargets, profile.restDay)
     await d.plannedSessions.bulkAdd(drafts.map((x) => ({ ...newRecord(), ...x })))
   })
   return weekStart
@@ -380,3 +381,180 @@ export async function dropProtocolVersion(version: number, d: BrainHealthDB = db
 
 /** The diet targets as first seeded from the protocol document. */
 export const seedDietTargets = (): Record<string, number> => Object.fromEntries(protocolV1.dietGroups.map((g) => [g.key, g.target]))
+
+
+/* ---------- weekly planning: repeat last week, usual week ---------- */
+
+/** What a bulk plan change did, so it can be undone exactly. */
+export interface PlanChange {
+  /** rows that existed before, as they were (restored on undo) */
+  before: PlannedSession[]
+  /** rows created by the change (removed on undo) */
+  added: string[]
+}
+
+async function linkedPlannedIds(weekStart: string, d: BrainHealthDB): Promise<Set<string>> {
+  const logs = alive(await d.sessionLogs.where('date').between(weekStart, addDaysKey(weekStart, 6), true, true).toArray())
+  return new Set(logs.map((l) => l.plannedSessionId).filter((x): x is string => !!x))
+}
+
+/** Replace this week's not-yet-done plan with a copy of last week's plan. Null when last week had nothing. */
+export async function repeatLastWeek(weekStart: string, d: BrainHealthDB = db): Promise<PlanChange | null> {
+  const prevStart = addDaysKey(weekStart, -7)
+  const prev = alive(await d.plannedSessions.where('weekStart').equals(prevStart).toArray())
+  if (!prev.length) return null
+  const change: PlanChange = { before: [], added: [] }
+  await d.transaction('rw', [d.plannedSessions, d.sessionLogs], async () => {
+    const linked = await linkedPlannedIds(weekStart, d)
+    const cur = alive(await d.plannedSessions.where('weekStart').equals(weekStart).toArray())
+    for (const p of cur) {
+      if (linked.has(p.id)) continue // done or skipped sessions stay
+      change.before.push(p)
+      await d.plannedSessions.update(p.id, { deletedAt: now(), updatedAt: now() })
+    }
+    for (const p of prev) {
+      const row: PlannedSession = {
+        ...newRecord(),
+        weekStart,
+        date: addDaysKey(p.date, 7),
+        activityType: p.activityType,
+        slot: p.slot,
+        origin: 'template',
+        ...(p.startTime ? { startTime: p.startTime } : {}),
+        ...(p.durationMin ? { durationMin: p.durationMin } : {}),
+        ...(p.note ? { note: p.note } : {}),
+      }
+      await d.plannedSessions.add(row)
+      change.added.push(row.id)
+    }
+  })
+  return change
+}
+
+/** Undo a PlanChange: drop what it added, put back what it changed or removed. */
+export async function undoPlanChange(change: PlanChange, d: BrainHealthDB = db) {
+  await d.transaction('rw', d.plannedSessions, async () => {
+    for (const id of change.added) await d.plannedSessions.update(id, { deletedAt: now(), updatedAt: now() })
+    for (const p of change.before) await d.plannedSessions.put(p)
+  })
+}
+
+/** Save a week's plan as the usual week that new weeks start from. Returns the number of sessions saved. */
+export async function saveUsualWeek(weekStart: string, d: BrainHealthDB = db): Promise<number> {
+  const planned = alive(await d.plannedSessions.where('weekStart').equals(weekStart).toArray())
+  const usualWeek = usualFromWeek(planned)
+  await updateProfile({ usualWeek }, d)
+  return usualWeek.length
+}
+
+export async function clearUsualWeek(d: BrainHealthDB = db) {
+  await updateProfile({ usualWeek: undefined }, d)
+}
+
+/** Replace a week's not-yet-done plan with the usual week (or the protocol defaults when none is saved). */
+export async function resetWeekToUsual(weekStart: string, d: BrainHealthDB = db): Promise<PlanChange> {
+  const change: PlanChange = { before: [], added: [] }
+  await d.transaction('rw', [d.plannedSessions, d.sessionLogs, d.protocols, d.profile], async () => {
+    const linked = await linkedPlannedIds(weekStart, d)
+    const cur = alive(await d.plannedSessions.where('weekStart').equals(weekStart).toArray())
+    for (const p of cur) {
+      if (linked.has(p.id)) continue
+      change.before.push(p)
+      await d.plannedSessions.update(p.id, { deletedAt: now(), updatedAt: now() })
+    }
+    const [protocol, profile] = await Promise.all([currentProtocol(d), getProfile(d)])
+    const drafts = profile.usualWeek?.length ? weekFromUsual(weekStart, profile.usualWeek) : generateWeek(weekStart, protocol.weeklyTargets, profile.restDay)
+    for (const x of drafts) {
+      const row = { ...newRecord(), ...x }
+      await d.plannedSessions.add(row)
+      change.added.push(row.id)
+    }
+  })
+  return change
+}
+
+/* ---------- imported sessions (from a booking screenshot, file or pasted text) ---------- */
+
+export interface ImportedSession {
+  date: string
+  activityType: ActivityKey
+  /** 'HH:mm' */
+  startTime?: string
+  durationMin?: number
+  note?: string
+}
+
+export type ImportOutcome = 'added' | 'moved' | 'updated' | 'duplicate'
+
+/**
+ * Put imported sessions into the plan without double-counting the weekly targets:
+ * a planned session of the same activity on that day gets the booking's time; otherwise an
+ * open planned session of that activity elsewhere in the week moves to the booked day;
+ * otherwise a new session is added. Exact repeats (same day, activity and start) are skipped.
+ */
+export async function applyImportedSessions(items: ImportedSession[], d: BrainHealthDB = db): Promise<{ change: PlanChange; outcomes: ImportOutcome[] }> {
+  const change: PlanChange = { before: [], added: [] }
+  const outcomes: ImportOutcome[] = []
+  const sorted = [...items].sort((a, b) => a.date.localeCompare(b.date))
+  for (const it of sorted) await ensureWeek(it.date, d)
+  await d.transaction('rw', [d.plannedSessions, d.sessionLogs], async () => {
+    const touched = new Set<string>()
+    for (const it of sorted) {
+      const weekStart = weekStartOf(it.date)
+      const linked = await linkedPlannedIds(weekStart, d)
+      const week = alive(await d.plannedSessions.where('weekStart').equals(weekStart).toArray())
+      const same = week.filter((p) => p.activityType === it.activityType)
+      const slot: Slot = it.startTime ? slotOf(it.startTime) : 'pm'
+      const fields = {
+        ...(it.startTime ? { startTime: it.startTime, slot } : {}),
+        ...(it.durationMin ? { durationMin: it.durationMin } : {}),
+        ...(it.note ? { note: it.note } : {}),
+        imported: true,
+        updatedAt: now(),
+      }
+      const dup = same.find((p) => p.date === it.date && p.imported && (p.startTime ?? '') === (it.startTime ?? ''))
+      if (dup) {
+        outcomes.push('duplicate')
+        continue
+      }
+      const onDay = same.find((p) => p.date === it.date && !p.imported && !linked.has(p.id) && !touched.has(p.id))
+      const elsewhere = same
+        .filter((p) => p.date !== it.date && !p.imported && !linked.has(p.id) && !touched.has(p.id))
+        // move the one nearest the booked day
+        .sort((a, b) => Math.abs(dayDiff(a.date, it.date)) - Math.abs(dayDiff(b.date, it.date)))[0]
+      const target = onDay ?? elsewhere
+      if (target) {
+        change.before.push(target)
+        touched.add(target.id)
+        if (target === onDay) {
+          await d.plannedSessions.update(target.id, fields)
+          outcomes.push('updated')
+        } else {
+          await d.plannedSessions.update(target.id, { ...fields, date: it.date, origin: 'moved', movedFromDate: target.movedFromDate ?? target.date })
+          outcomes.push('moved')
+        }
+      } else {
+        const row: PlannedSession = { ...newRecord(), weekStart, date: it.date, activityType: it.activityType, slot, origin: 'added', ...fields }
+        await d.plannedSessions.add(row)
+        touched.add(row.id)
+        change.added.push(row.id)
+        outcomes.push('added')
+      }
+    }
+  })
+  return { change, outcomes }
+}
+
+const dayDiff = (a: string, b: string) => (Date.parse(a) - Date.parse(b)) / 864e5
+
+/* ---------- usual meals ---------- */
+
+/** Save the usual meals as a new protocol version. Returns the new version number (for undo). */
+export async function saveMealTemplates(mealTemplates: MealTemplate[], d: BrainHealthDB = db): Promise<number> {
+  const cur = await currentProtocol(d)
+  const next: ProtocolVersion = { ...cur, version: cur.version + 1, effectiveFrom: toDateKey(Date.now()), mealTemplates }
+  await d.protocols.put(validateProtocol(next))
+  return next.version
+}
+
+export const seedMealTemplates = (): MealTemplate[] => structuredClone(protocolV1.mealTemplates)

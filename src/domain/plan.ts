@@ -1,5 +1,5 @@
 import { dateForWeekday, isoWeekday, weekDays } from './dates'
-import type { ActivityKey, ActivityType, IsoWeekday, PlannedSession, SessionLog, WeeklyTarget } from './types'
+import type { ActivityKey, ActivityType, IsoWeekday, PlannedSession, SessionLog, Slot, UsualWeekItem, WeeklyTarget } from './types'
 
 export type PlannedDraft = Omit<PlannedSession, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>
 
@@ -14,6 +14,38 @@ export function generateWeek(weekStart: string, targets: WeeklyTarget[], restDay
   }
   return out
 }
+
+/** Build a week from the user's saved usual week. */
+export function weekFromUsual(weekStart: string, items: UsualWeekItem[]): PlannedDraft[] {
+  return items.map((i) => ({
+    weekStart,
+    date: dateForWeekday(weekStart, i.weekday),
+    activityType: i.activityType,
+    slot: i.slot,
+    origin: 'template' as const,
+    ...(i.startTime ? { startTime: i.startTime } : {}),
+    ...(i.durationMin ? { durationMin: i.durationMin } : {}),
+    ...(i.note ? { note: i.note } : {}),
+  }))
+}
+
+/** A week's planned sessions as a usual week (weekday-based, keeps times and notes). */
+export function usualFromWeek(planned: PlannedSession[]): UsualWeekItem[] {
+  return planned
+    .filter((p) => !p.deletedAt)
+    .sort((a, b) => a.date.localeCompare(b.date) || (a.startTime ?? a.slot).localeCompare(b.startTime ?? b.slot))
+    .map((p) => ({
+      weekday: isoWeekday(p.date),
+      activityType: p.activityType,
+      slot: p.slot,
+      ...(p.startTime ? { startTime: p.startTime } : {}),
+      ...(p.durationMin ? { durationMin: p.durationMin } : {}),
+      ...(p.note ? { note: p.note } : {}),
+    }))
+}
+
+/** 'HH:mm' to a slot: before noon is morning. */
+export const slotOf = (hhmm: string): Slot => (Number(hhmm.slice(0, 2)) < 12 ? 'am' : 'pm')
 
 export type PlanStatus = 'planned' | 'done' | 'skipped'
 

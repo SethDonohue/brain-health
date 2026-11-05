@@ -41,6 +41,8 @@ export interface Profile {
   onboarded: boolean
   /** bottom-bar order; the first tab opens at launch. Missing on profiles from builds 1–2. */
   tabOrder?: TabKey[]
+  /** saved usual week; when set, new weeks are generated from it instead of the protocol defaults */
+  usualWeek?: UsualWeekItem[]
   updatedAt: number
 }
 
@@ -162,6 +164,24 @@ export interface PlannedSession extends BaseRecord {
   slot: Slot
   origin: PlannedOrigin
   movedFromDate?: string
+  /** 'HH:mm', when a booking or the usual week gives a real start time */
+  startTime?: string
+  /** planned length in minutes, from a booking or the usual week */
+  durationMin?: number
+  /** e.g. the booking name, "Happy Hour Open Play 4.0+" */
+  note?: string
+  /** set when the row came from an AI import */
+  imported?: boolean
+}
+
+/** One session of the user's saved "usual week"; new weeks start from these when set. */
+export interface UsualWeekItem {
+  weekday: IsoWeekday
+  activityType: ActivityKey
+  slot: Slot
+  startTime?: string
+  durationMin?: number
+  note?: string
 }
 
 export type SessionStatus = 'done' | 'skipped' | 'active'

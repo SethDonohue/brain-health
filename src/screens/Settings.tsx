@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react'
 import { backupName, buildBackup, restoreBackup, shareFile, type Backup } from '../db/backup'
 import { db } from '../db/db'
-import { alive, movePlanned, removeCustomActivity, restoreCustomActivity, updateProfile } from '../db/repo'
+import { alive, clearUsualWeek, movePlanned, removeCustomActivity, restoreCustomActivity, updateProfile } from '../db/repo'
+import { getApiKey, ImportError, MODEL, setApiKey, testKey } from '../ai/extract'
 import { dateForWeekday, todayKey, weekdayLong, weekStartOf } from '../domain/dates'
 import { moveTab, normalizeTabOrder } from '../domain/sleep'
 import { DEFAULT_TAB_ORDER } from '../domain/types'
@@ -59,6 +60,14 @@ export function SettingsSheet() {
         <RestDayPicker value={p.restDay} onChange={(wd) => void changeRestDay(wd)} />
       </Field>
 
+      {!!p.usualWeek?.length && (
+        <Field label="Usual week" hint="New weeks start from the usual week you saved on the Train tab. Clearing it goes back to the protocol's defaults.">
+          <Button variant="outline" onClick={() => void clearUsualWeek()}>
+            Clear usual week ({p.usualWeek.length} sessions)
+          </Button>
+        </Field>
+      )}
+
       <Field label="Weekly cardio floor" hint="Moderate-equivalent minutes. Vigorous minutes count double.">
         <Stepper label="cardio floor" value={p.cardioFloorMin} step={10} min={30} max={p.cardioTargetMin} onChange={(v) => set({ cardioFloorMin: v })} format={(v) => `${v} min`} />
       </Field>
@@ -75,6 +84,8 @@ export function SettingsSheet() {
       </Field>
 
       <OwnActivities />
+
+      <AiKey />
 
       <div className="mb-6 border-t border-line pt-2">
         <Toggle label="Track wine (at most 1 glass a day)" checked={p.wineEnabled} onChange={(wineEnabled) => set({ wineEnabled })} />
@@ -259,6 +270,73 @@ function BackupRestore() {
             </Button>
           </div>
         </div>
+      )}
+    </Field>
+  )
+}
+
+/** The user's own Anthropic API key for imports. Kept on this phone only, never in backups. */
+function AiKey() {
+  const [saved, setSaved] = useState(getApiKey())
+  const [draft, setDraft] = useState('')
+  const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null)
+  const [busy, setBusy] = useState(false)
+  const masked = saved ? `${saved.slice(0, 10)}…${saved.slice(-4)}` : ''
+
+  const save = async () => {
+    const k = draft.trim()
+    if (!k) return
+    setBusy(true)
+    setStatus(null)
+    try {
+      await testKey(k)
+      setApiKey(k)
+      setSaved(k)
+      setDraft('')
+      setStatus({ ok: true, text: 'Key saved and working.' })
+    } catch (e) {
+      setStatus({ ok: false, text: e instanceof ImportError ? e.message : 'Couldn’t check the key. Try again.' })
+    }
+    setBusy(false)
+  }
+
+  return (
+    <Field label="Import with Claude" hint={`Reads booking screenshots and recipes with ${MODEL}, using your own key from the Claude Console. Each import costs a fraction of a cent. The key stays on this phone and is never included in backups.`}>
+      {saved ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="num min-w-0 flex-1 truncate rounded-xl bg-sunk px-3 py-3 text-sm">{masked}</span>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setApiKey('')
+              setSaved('')
+              setStatus(null)
+            }}
+          >
+            Remove
+          </Button>
+        </div>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          <input
+            type="password"
+            autoComplete="off"
+            spellCheck={false}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder="sk-ant-…"
+            aria-label="Anthropic API key"
+            className="min-h-12 min-w-0 flex-1 basis-48 rounded-xl border border-line bg-surface px-3 text-base"
+          />
+          <Button onClick={() => void save()} disabled={busy || !draft.trim()}>
+            {busy ? 'Checking…' : 'Save key'}
+          </Button>
+        </div>
+      )}
+      {status && (
+        <p role="status" className={`mt-2 text-sm ${status.ok ? 'text-moderate' : 'text-red'}`}>
+          {status.text}
+        </p>
       )}
     </Field>
   )

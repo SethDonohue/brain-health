@@ -46,3 +46,12 @@ export const formatDuration = (min: number): string => {
   if (m === 0) return `${h} h`
   return `${h} h ${m}`
 }
+
+/** '15:00' to '3 PM', '15:30' to '3:30 PM' */
+export function formatClock(hhmm: string) {
+  const [h, m] = hhmm.split(':').map(Number)
+  const ap = h < 12 ? 'AM' : 'PM'
+  const h12 = h % 12 || 12
+  return m ? `${h12}:${String(m).padStart(2, '0')} ${ap}` : `${h12} ${ap}`
+}
+

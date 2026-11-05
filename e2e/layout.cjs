@@ -113,8 +113,15 @@ function inspect({ footerSelector }) {
       const h = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top)
       // glyph boxes of different sizes on neighbouring lines can touch by a few px; ignore small vertical contact
       if (w > 3 && h > 6 && !boxes[i].el.contains(boxes[j].el) && !boxes[j].el.contains(boxes[i].el)) {
-        const fixed = (e) => !!e.closest('[class*="fixed"]')
-        if (fixed(boxes[i].el) !== fixed(boxes[j].el)) continue
+        // different layers (a fixed footer, a sticky save bar) slide over content on purpose
+        const layer = (e) => {
+          for (let n = e; n; n = n.parentElement) {
+            const pos = getComputedStyle(n).position
+            if (pos === 'fixed' || pos === 'sticky') return n
+          }
+          return null
+        }
+        if (layer(boxes[i].el) !== layer(boxes[j].el)) continue
         out.push(['overlap', `${label(boxes[i].el)} overlaps ${label(boxes[j].el)} by ${Math.round(w)}x${Math.round(h)}px`])
         reported++
       }

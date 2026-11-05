@@ -2,7 +2,7 @@ import { format } from 'date-fns'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/db'
 import { addPlanned, alive, removePlanned, resetPlanned, skipPlanned, startStrength } from '../db/repo'
-import { fromDateKey, weekStartOf } from '../domain/dates'
+import { formatClock, formatDuration, fromDateKey, weekStartOf } from '../domain/dates'
 import { plannedStatus } from '../domain/plan'
 import { historyFor, targetLabel } from '../domain/strength'
 import type { ActivityKey, PlannedSession } from '../domain/types'
@@ -30,6 +30,13 @@ export function PlannedSheet({ planned }: { planned: PlannedSession }) {
 
   return (
     <Sheet title={`${label}, ${day}`}>
+      {(planned.note || planned.startTime) && (
+        <p className="mb-2 font-medium">
+          {planned.startTime ? formatClock(planned.startTime) : ''}
+          {planned.durationMin ? ` for ${formatDuration(planned.durationMin)}` : ''}
+          {planned.note ? `${planned.startTime ? ', ' : ''}${planned.note}` : ''}
+        </p>
+      )}
       {target?.note && <p className="mb-4 text-ink-2">{target.note}</p>}
       <div className="flex flex-col gap-2 pb-2">
         {planned.activityType === 'rest' ? (

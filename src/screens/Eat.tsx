@@ -217,6 +217,7 @@ function GroupRow({ p, date, daysSoFar }: { p: GroupProgress; date: string; days
 
 function Meals({ protocol, profile, date }: { protocol: ProtocolVersion; profile: Profile; date: string }) {
   const toast = useUi((s) => s.showToast)
+  const open = useUi((s) => s.open)
   const label = (k: string) => protocol.dietGroups.find((g) => g.key === k)?.label.toLowerCase() ?? k
   const enabled = (k: string) => k !== 'wine' || profile.wineEnabled
   const log = async (m: MealTemplate) => {
@@ -225,7 +226,12 @@ function Meals({ protocol, profile, date }: { protocol: ProtocolVersion; profile
   }
   return (
     <section aria-label="Usual meals" className="mt-6 px-4">
-      <h2 className="mb-2 font-medium">Usual meals</h2>
+      <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3">
+        <h2 className="font-medium">Usual meals</h2>
+        <button onClick={() => open({ kind: 'editMeals' })} className="min-h-11 text-sm font-medium text-moderate">
+          Edit meals
+        </button>
+      </div>
       <ul className="space-y-2">
         {protocol.mealTemplates.map((m) => (
           <li key={m.key}>
@@ -239,6 +245,13 @@ function Meals({ protocol, profile, date }: { protocol: ProtocolVersion; profile
           </li>
         ))}
       </ul>
+      <p className="mt-2 text-sm text-ink-3">
+        Have a recipe?{' '}
+        <button onClick={() => open({ kind: 'import', mode: 'meal' })} className="min-h-11 font-medium text-moderate">
+          Import it from a photo, file or text
+        </button>
+        , or share it to Brain Health from another app.
+      </p>
     </section>
   )
 }

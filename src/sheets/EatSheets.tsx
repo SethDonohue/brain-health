@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { dropProtocolVersion, saveDietTargets, seedDietTargets } from '../db/repo'
+import { dropProtocolVersion, saveDietTargets, saveMealTemplates, seedDietTargets, seedMealTemplates } from '../db/repo'
 import { bandText, MIND_BANDS, servingStep, targetText } from '../domain/mind'
-import type { DietGroup } from '../domain/types'
+import type { DietGroup, MealTemplate } from '../domain/types'
+import { MealEditor } from './ImportSheet'
 import { fmt } from '../domain/units'
 import { useProfile, useProtocol } from '../hooks'
 import { useUi } from '../store'
@@ -113,6 +114,113 @@ export function MindAboutSheet() {
           one glass a day never scores.
         </p>
         <p className="text-sm text-ink-2">This app tracks habits and isn't medical advice. Talk to a doctor or dietitian before major changes, especially with health conditions.</p>
+      </div>
+    </Sheet>
+  )
+}
+
+/** Add, rename, change, reorder and delete usual meals. Saving makes a new protocol version, like targets. */
+export function EditMealsSheet() {
+  const protocol = useProtocol()
+  const profile = useProfile()
+  if (!protocol || !profile) return null
+  const groups = protocol.dietGroups.filter((g) => !g.optional || (g.key === 'wine' && profile.wineEnabled))
+  return <EditMealsForm key={protocol.version} meals={protocol.mealTemplates} groups={groups} />
+}
+
+function EditMealsForm({ meals: start, groups }: { meals: MealTemplate[]; groups: DietGroup[] }) {
+  const close = useUi((s) => s.close)
+  const open = useUi((s) => s.open)
+  const toast = useUi((s) => s.showToast)
+  const [meals, setMeals] = useState<MealTemplate[]>(start)
+  const [editing, setEditing] = useState<number | null>(null)
+  const changed = JSON.stringify(meals) !== JSON.stringify(start)
+  const label = (k: string) => groups.find((g) => g.key === k)?.label.toLowerCase() ?? k
+
+  const save = async () => {
+    const v = await saveMealTemplates(meals.filter((m) => m.label.trim() && m.servings.length))
+    close()
+    toast({ message: 'Meals saved', action: { label: 'Undo', run: () => void dropProtocolVersion(v) } })
+  }
+  const move = (i: number, by: -1 | 1) => {
+    const next = [...meals]
+    ;[next[i], next[i + by]] = [next[i + by], next[i]]
+    setMeals(next)
+  }
+  const add = () => {
+    let key = `meal_${Date.now().toString(36)}`
+    while (meals.some((m) => m.key === key)) key += '_'
+    setMeals([...meals, { key, label: '', servings: [] }])
+    setEditing(meals.length)
+  }
+
+  if (editing != null && meals[editing]) {
+    const m = meals[editing]
+    return (
+      <Sheet title={m.label.trim() || 'New meal'} onClose={() => setEditing(null)}>
+        <div className="px-4 pt-3 pb-2">
+          <MealEditor
+            label={m.label}
+            servings={m.servings}
+            groups={groups}
+            onChange={(l, servings) => setMeals(meals.map((x, j) => (j === editing ? { ...x, label: l, servings: servings.map(({ dietGroupKey, amount }) => ({ dietGroupKey, amount })) } : x)))}
+          />
+          <div className="sticky bottom-0 mt-4 flex gap-2 bg-surface pt-2">
+            <Button
+              variant="danger"
+              onClick={() => {
+                setMeals(meals.filter((_, j) => j !== editing))
+                setEditing(null)
+              }}
+            >
+              Delete
+            </Button>
+            <Button className="flex-1" onClick={() => setEditing(null)}>
+              Done
+            </Button>
+          </div>
+        </div>
+      </Sheet>
+    )
+  }
+
+  return (
+    <Sheet title="Usual meals">
+      <div className="px-4 pt-3 pb-2">
+        <p className="text-sm text-ink-2">Tap a meal to change its name or servings. Past days keep what you logged.</p>
+        <ul className="mt-3 divide-y divide-line rounded-xl border border-line">
+          {meals.map((m, i) => (
+            <li key={m.key} className="flex items-center gap-1 pl-3">
+              <button onClick={() => setEditing(i)} className="min-h-14 min-w-0 flex-1 py-2 text-left">
+                <span className="block font-medium">{m.label || 'Untitled meal'}</span>
+                <span className="block text-sm text-ink-2">{m.servings.map((s) => label(s.dietGroupKey)).join(', ') || 'No food groups yet'}</span>
+              </button>
+              <button aria-label={`Move ${m.label} up`} disabled={i === 0} onClick={() => move(i, -1)} className="min-h-11 min-w-11 rounded-lg text-ink-2 disabled:opacity-25">
+                ↑
+              </button>
+              <button aria-label={`Move ${m.label} down`} disabled={i === meals.length - 1} onClick={() => move(i, 1)} className="min-h-11 min-w-11 rounded-lg text-ink-2 disabled:opacity-25">
+                ↓
+              </button>
+            </li>
+          ))}
+          {meals.length === 0 && <li className="px-3 py-3 text-sm text-ink-3">No usual meals.</li>}
+        </ul>
+        <div className="mt-3 grid grid-cols-[repeat(auto-fit,minmax(9rem,1fr))] gap-2">
+          <Button variant="outline" onClick={add}>
+            Add a meal
+          </Button>
+          <Button variant="outline" onClick={() => open({ kind: 'import', mode: 'meal' })}>
+            Import a recipe
+          </Button>
+        </div>
+        <button onClick={() => setMeals(seedMealTemplates())} className="mt-2 min-h-11 text-sm font-medium text-ink-2">
+          Reset to protocol meals
+        </button>
+        <div className="sticky bottom-0 mt-2 flex gap-2 bg-surface pt-2">
+          <Button className="flex-1" disabled={!changed} onClick={() => void save()}>
+            Save meals
+          </Button>
+        </div>
       </div>
     </Sheet>
   )

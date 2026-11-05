@@ -1,3 +1,4 @@
+import type { ImportMode, SharedInput } from './ai/types'
 import { create } from 'zustand'
 import type { ActivityKey, CaffeineLog, PlannedSession, SessionLog, TabKey } from './domain/types'
 
@@ -17,6 +18,8 @@ export type Sheet =
   | { kind: 'exerciseHistory'; exerciseKey: string }
   | { kind: 'editTargets' }
   | { kind: 'mindAbout' }
+  | { kind: 'editMeals' }
+  | { kind: 'import'; mode?: ImportMode; shared?: SharedInput }
 
 export interface Toast {
   id: number

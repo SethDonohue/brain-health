@@ -1,6 +1,6 @@
 import { format } from 'date-fns'
 import { weekTotals, type WeekTotals } from '../domain/cardio'
-import { addDaysKey, formatDuration, formatTime, fromDateKey } from '../domain/dates'
+import { addDaysKey, formatClock, formatDuration, formatTime, fromDateKey } from '../domain/dates'
 import { checkRestDay, intenseOnRestDay, plannedStatus, targetProgress } from '../domain/plan'
 import { cutoffsFor } from '../domain/sleepTimes'
 import type { PlannedSession, Profile, ProtocolVersion, SessionLog } from '../domain/types'
@@ -274,7 +274,7 @@ function PlannedRow({
   const target = protocol.weeklyTargets.find((t) => t.activityType === p.activityType)
   const status = plannedStatus(p, logs)
   const doneLog = logs.find((l) => l.plannedSessionId === p.id && l.status === 'done')
-  const slot = p.slot === 'am' ? 'Morning or midday' : 'Late afternoon'
+  const slot = p.startTime ? formatClock(p.startTime) : p.slot === 'am' ? 'Morning or midday' : 'Late afternoon'
 
   if (p.activityType === 'rest') {
     return (
@@ -295,8 +295,9 @@ function PlannedRow({
           <div className="font-medium">{a?.label}</div>
           <div className="text-sm text-ink-2">
             {slot}
-            {target && target.durationMax > 0 && `, ${formatDuration(target.durationMin)}–${formatDuration(target.durationMax)}`}
+            {p.durationMin ? `, ${formatDuration(p.durationMin)}` : target && target.durationMax > 0 && `, ${formatDuration(target.durationMin)}–${formatDuration(target.durationMax)}`}
           </div>
+          {p.note && <div className="text-sm text-ink-2">{p.note}</div>}
           {p.movedFromDate && <div className="text-xs text-ink-3">Moved from {format(fromDateKey(p.movedFromDate), 'EEEE')}</div>}
         </div>
         {status !== 'planned' && (
