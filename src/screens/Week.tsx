@@ -64,7 +64,7 @@ export function Week() {
           {format(fromDateKey(selected), 'MMM d')} to {format(fromDateKey(addDaysKey(selected, 6)), 'MMM d')}
           {current.isCurrent && current.daysElapsed < 7 && `, ${current.daysElapsed} ${current.daysElapsed === 1 ? 'day' : 'days'} so far`}
         </div>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-x-2">
           <h1 className="font-display text-3xl font-semibold tracking-tight">Week</h1>
           <div className="flex items-center">
             <button className="flex min-h-12 min-w-12 items-center justify-center rounded-xl text-ink-2 active:bg-sunk disabled:opacity-25" disabled={offset >= TREND_MAX + 3} onClick={() => setSelected(addDaysKey(selected, -7))} aria-label="Previous week">

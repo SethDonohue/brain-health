@@ -91,7 +91,7 @@ export function SettingsSheet() {
 
 export function RestDayPicker({ value, onChange }: { value: IsoWeekday; onChange: (wd: IsoWeekday) => void }) {
   return (
-    <div className="grid grid-cols-7 gap-1" role="radiogroup" aria-label="Rest day">
+    <div className="grid grid-cols-7 gap-1" role="radiogroup" aria-label="Rest day" data-small-ok>
       {([1, 2, 3, 4, 5, 6, 7] as IsoWeekday[]).map((wd) => (
         <button
           key={wd}

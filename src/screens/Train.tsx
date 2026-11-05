@@ -31,7 +31,7 @@ export function Train() {
         <div className="text-sm text-ink-2">
           {format(fromDateKey(days[0]), 'MMM d')} to {format(fromDateKey(days[6]), 'MMM d')}
         </div>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-x-2">
           <h1 className="font-display text-3xl font-semibold tracking-tight">Train</h1>
           <div className="flex items-center">
             <button className="flex min-h-12 min-w-12 items-center justify-center rounded-xl text-ink-2 active:bg-sunk disabled:opacity-25" disabled={offset <= -8} onClick={() => setOffset(offset - 1)} aria-label="Previous week">

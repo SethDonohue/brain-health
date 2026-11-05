@@ -38,12 +38,11 @@ export function Eat() {
 
   return (
     <div>
-      <header className="flex items-end justify-between px-4 pt-4">
-        <div>
-          <div className="text-sm text-ink-2">{format(fromDateKey(date), 'EEEE, MMMM d')}</div>
-          <h1 className="font-display text-3xl font-semibold tracking-tight">Eat</h1>
-        </div>
-        <div className="w-48">
+      <header className="px-4 pt-4">
+        <div className="text-sm text-ink-2">{format(fromDateKey(date), 'EEEE, MMMM d')}</div>
+        <h1 className="font-display text-3xl font-semibold tracking-tight">Eat</h1>
+        {/* Own row, so a long date or a large text size never collides with the toggle. */}
+        <div className="mt-3">
           <Segmented
             label="Day"
             value={day}
@@ -193,9 +192,9 @@ function GroupRow({ p, date, daysSoFar }: { p: GroupProgress; date: string; days
         aria-label={`${g.label}: ${fmt(p.value)} ${periodWord(g)}, your target ${targetText(g)}${statusWord ? `, ${statusWord.toLowerCase()}` : ''}${studyLine ? `. ${studyLine}` : ''}. Tap to add a serving, hold to take one back.`}
         className="block w-full touch-manipulation select-none px-4 py-3 text-left [-webkit-touch-callout:none] active:bg-sunk"
       >
-        <span className="flex items-baseline justify-between gap-3">
-          <span className="font-medium">{g.label}</span>
-          <span className="num shrink-0 text-sm">
+        <span className="flex flex-wrap items-baseline justify-between gap-x-3">
+          <span className="min-w-0 font-medium">{g.label}</span>
+          <span className="num min-w-0 text-sm">
             <span className={cx('font-semibold', tone === 'text-ink-2' ? 'text-ink' : tone)}>{fmt(p.value)}</span>
             <span className="text-ink-2">
               {' '}

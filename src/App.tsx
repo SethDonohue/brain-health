@@ -95,10 +95,10 @@ export default function App() {
               window.scrollTo(0, 0)
             }}
             aria-current={tab === t ? 'page' : undefined}
-            className={cx('relative flex min-h-14 flex-1 items-center justify-center text-sm font-medium', tab === t ? 'text-ink' : 'text-ink-3')}
+            className={cx('relative flex min-h-14 min-w-0 flex-1 items-center justify-center px-0.5 text-[0.8125rem] font-medium', tab === t ? 'text-ink' : 'text-ink-3')}
           >
             {tab === t && <span className="absolute top-0 h-0.5 w-8 rounded-full bg-ink" />}
-            {TAB_LABELS[t]}
+            <span className="min-w-0 truncate">{TAB_LABELS[t]}</span>
           </button>
         ))}
         </nav>

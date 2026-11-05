@@ -24,14 +24,14 @@ export function Today() {
 
   return (
     <div>
-      <header className="flex items-start justify-between px-4 pt-4">
-        <div>
+      <header className="flex items-start justify-between gap-2 px-4 pt-4">
+        <div className="min-w-0">
           <div className="text-sm text-ink-2">{format(fromDateKey(today), 'EEEE')}</div>
           <h1 className="font-display text-3xl font-semibold tracking-tight">{format(fromDateKey(today), 'MMMM d')}</h1>
         </div>
         <button
           onClick={() => open({ kind: 'settings' })}
-          className="flex min-h-12 min-w-12 items-center justify-center rounded-xl text-ink-2 active:bg-sunk"
+          className="flex min-h-12 min-w-12 shrink-0 items-center justify-center rounded-xl text-ink-2 active:bg-sunk"
           aria-label="Settings"
         >
           <GearIcon />
@@ -132,23 +132,23 @@ function ExerciseTotal({ totals, last, week, protocol }: { totals: WeekTotals; l
         <span className="text-sm text-ink-2">Last week {formatDuration(last.totalExerciseMin)}</span>
       </div>
       <div className="num mt-1 text-4xl font-semibold leading-none">{formatDuration(totals.totalExerciseMin)}</div>
-      <ul className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+      <ul className="mt-4 grid grid-cols-[repeat(auto-fit,minmax(9rem,1fr))] gap-x-4 gap-y-2 text-sm">
         {progress.map((p) => (
-          <li key={p.activityType} className="flex items-center justify-between">
-            <span className="text-ink-2">{activityOf(protocol, p.activityType)?.label}</span>
-            <span className={cx('num font-semibold', p.done >= p.target && 'text-moderate')}>
+          <li key={p.activityType} className="flex items-center justify-between gap-2">
+            <span className="min-w-0 text-ink-2">{activityOf(protocol, p.activityType)?.label}</span>
+            <span className={cx('num shrink-0 font-semibold', p.done >= p.target && 'text-moderate')}>
               {p.done}/{p.target}
             </span>
           </li>
         ))}
-        <li className="flex items-center justify-between">
-          <span className="text-ink-2">Commute legs</span>
-          <span className="num font-semibold">{commutes}</span>
+        <li className="flex items-center justify-between gap-2">
+          <span className="min-w-0 text-ink-2">Commute legs</span>
+          <span className="num shrink-0 font-semibold">{commutes}</span>
         </li>
         {own.map((a) => (
-          <li key={a.key} className="flex items-center justify-between">
-            <span className="truncate text-ink-2">{a.label}</span>
-            <span className="num font-semibold">{totals.sessionsByType[a.key]}</span>
+          <li key={a.key} className="flex items-center justify-between gap-2">
+            <span className="min-w-0 truncate text-ink-2">{a.label}</span>
+            <span className="num shrink-0 font-semibold">{totals.sessionsByType[a.key]}</span>
           </li>
         ))}
       </ul>
@@ -313,7 +313,7 @@ function PlannedRow({
       {status === 'done' && doneLog ? (
         <div className="mt-2 flex items-center justify-between">
           <LogSummary log={doneLog} />
-          <button className="min-h-11 px-2 text-sm font-medium text-ink-2" onClick={() => open({ kind: 'log', edit: doneLog })}>
+          <button className="min-h-11 min-w-11 px-2 text-sm font-medium text-ink-2" onClick={() => open({ kind: 'log', edit: doneLog })}>
             Edit
           </button>
         </div>
@@ -322,8 +322,8 @@ function PlannedRow({
           Undo skip
         </button>
       ) : (
-        <div className="mt-3 flex gap-2">
-          <Button onClick={onDone} className="flex-1">
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Button onClick={onDone} className="min-w-[7rem] flex-1">
             {p.activityType === 'strength' ? 'Start workout' : 'Done'}
           </Button>
           <Button variant="outline" onClick={onMove}>
@@ -345,7 +345,7 @@ function LoggedRow({ log, protocol, onEdit }: { log: SessionLog; protocol: Proto
         <div className="font-medium">{activityOf(protocol, log.activityType)?.label}</div>
         <LogSummary log={log} />
       </div>
-      <button className="min-h-11 px-2 text-sm font-medium text-ink-2" onClick={onEdit}>
+      <button className="min-h-11 min-w-11 px-2 text-sm font-medium text-ink-2" onClick={onEdit}>
         Edit
       </button>
     </li>
@@ -403,13 +403,13 @@ function QuickLogButtons({ profile, today, week }: { profile: Profile; today: st
   return (
     <div className="px-3 pt-2 pb-1">
       <div className="flex gap-2">
-        <Button variant="outline" onClick={logCommute} className="flex-1 leading-tight">
+        <Button variant="outline" onClick={logCommute} className="min-w-0 flex-1 leading-tight">
           <span className="block">Commute leg</span>
           <span className="block text-xs font-normal text-ink-2">
             {profile.commuteDefaultMin} min{legsToday > 0 ? `, ${legsToday} today` : ''}
           </span>
         </Button>
-        <Button onClick={() => open({ kind: 'log' })} className="flex-1">
+        <Button onClick={() => open({ kind: 'log' })} className="min-w-0 flex-1">
           Log activity
         </Button>
       </div>

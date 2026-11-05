@@ -121,7 +121,7 @@ function MorningCard({ profile, night, logs }: { profile: Profile; night: string
 
 export function QualityPicker({ value, onPick }: { value?: number; onPick: (q: SleepLog['quality']) => void }) {
   return (
-    <div role="radiogroup" aria-label="Sleep quality" className="grid grid-cols-5 gap-1.5">
+    <div role="radiogroup" aria-label="Sleep quality" className="grid grid-cols-[repeat(auto-fit,minmax(2.75rem,1fr))] gap-1.5">
       {QUALITY_LABELS.map((label, i) => {
         const q = (i + 1) as SleepLog['quality']
         const on = value === q
@@ -237,10 +237,10 @@ function Caffeine({ profile, protocol, night, data, now }: { profile: Profile; p
       </div>
       <div className="rounded-2xl bg-surface p-4">
         <p className={cx('mb-3 text-sm', status.warn ? 'text-amber' : 'text-ink-2')}>{status.text}</p>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] gap-2">
           {drinks.map((d) => (
             <button key={d.key} onClick={() => void log(d)} className="flex min-h-16 flex-col items-start justify-center rounded-xl border border-line px-3 text-left active:bg-sunk" aria-label={`Log ${d.label}, ${d.defaultMg} milligrams`}>
-              <span className="text-sm font-medium leading-tight">{d.label}</span>
+              <span className="min-w-0 max-w-full break-words text-sm font-medium leading-tight">{d.label}</span>
               <span className="num text-xs text-ink-2">{d.defaultMg} mg</span>
             </button>
           ))}
