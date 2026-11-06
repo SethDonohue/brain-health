@@ -109,7 +109,7 @@ cd android && ./gradlew assembleDebug
 Or `npm run apk` for all three steps.
 
 - Bump `versionCode` and `versionName` in `android/app/build.gradle` for each build.
-- Builds are signed with `android/app/brainhealth.keystore`, so a new APK installs over the old one and keeps its data. Don't replace this key. **Keep this repository private**, because anyone with the key can build an app that installs over yours.
+- **Signing key:** the key that signs the APKs isn't in this repository. Put `brainhealth.keystore` and `keystore.properties` (with `storeFile`, `storePassword`, `keyAlias`, `keyPassword`) in `android/`; both are ignored by git. Signed builds install over the existing app and keep its data. Without the key, Gradle signs with the default debug key: the build works but can't update an installed copy.
 - Don't edit `android/app/src/main/assets/public`; `cap sync` generates it.
 
 APKs for each build are attached to this repository's GitHub Releases.

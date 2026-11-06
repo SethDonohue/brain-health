@@ -16,17 +16,26 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // The signing key is kept out of this repository. Put brainhealth.keystore and
+    // keystore.properties (storeFile, storePassword, keyAlias, keyPassword) in android/
+    // to sign builds that install over the existing app. Without them, the default
+    // debug key is used, which builds fine but can't update an installed copy.
+    def keystorePropsFile = rootProject.file('keystore.properties')
+    def keystoreProps = new Properties()
+    if (keystorePropsFile.exists()) keystorePropsFile.withInputStream { keystoreProps.load(it) }
     signingConfigs {
         shared {
-            storeFile file('brainhealth.keystore')
-            storePassword 'brainhealth'
-            keyAlias 'brainhealth'
-            keyPassword 'brainhealth'
+            if (keystorePropsFile.exists()) {
+                storeFile rootProject.file(keystoreProps['storeFile'])
+                storePassword keystoreProps['storePassword']
+                keyAlias keystoreProps['keyAlias']
+                keyPassword keystoreProps['keyPassword']
+            }
         }
     }
     buildTypes {
         debug {
-            signingConfig signingConfigs.shared
+            if (keystorePropsFile.exists()) signingConfig signingConfigs.shared
         }
         release {
             minifyEnabled false
