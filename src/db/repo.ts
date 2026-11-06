@@ -61,6 +61,21 @@ export async function ensureSeed(d: BrainHealthDB = db): Promise<void> {
       )
     }
   })
+  await addNewSeedMeals(d)
+}
+
+/** Meals the protocol seed gained since this phone's protocol was made, added once; deleting one keeps it deleted. */
+const NEW_SEED_MEALS = ['meal_mind_smoothie']
+
+async function addNewSeedMeals(d: BrainHealthDB) {
+  const profile = await getProfile(d)
+  const done = new Set(profile.seededMeals ?? [])
+  const todo = NEW_SEED_MEALS.filter((k) => !done.has(k))
+  if (!todo.length) return
+  const cur = await currentProtocol(d)
+  const missing = protocolV1.mealTemplates.filter((m) => todo.includes(m.key) && !cur.mealTemplates.some((x) => x.key === m.key))
+  if (missing.length) await saveMealTemplates([...cur.mealTemplates, ...structuredClone(missing)], d)
+  await updateProfile({ seededMeals: [...done, ...todo] }, d)
 }
 
 export async function getProfile(d: BrainHealthDB = db): Promise<Profile> {

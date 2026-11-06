@@ -43,6 +43,8 @@ export interface Profile {
   tabOrder?: TabKey[]
   /** saved usual week; when set, new weeks are generated from it instead of the protocol defaults */
   usualWeek?: UsualWeekItem[]
+  /** keys of meals added to the user's usual meals by an app update, so a deleted one isn't added back */
+  seededMeals?: string[]
   updatedAt: number
 }
 

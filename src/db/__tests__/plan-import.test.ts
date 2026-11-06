@@ -15,6 +15,7 @@ import {
   saveMealTemplates,
   saveUsualWeek,
   undoPlanChange,
+  updateProfile,
 } from '../repo'
 
 const week = async (d: BrainHealthDB, ws: string) => alive(await d.plannedSessions.where('weekStart').equals(ws).toArray())
@@ -98,5 +99,28 @@ describe('usual meals', () => {
     const v = await saveMealTemplates([...cur.mealTemplates, { key: 'meal_x', label: 'Lentil soup', servings: [{ dietGroupKey: 'beans', amount: 1 }] }], d)
     expect(v).toBe(cur.version + 1)
     expect((await currentProtocol(d)).mealTemplates.at(-1)?.label).toBe('Lentil soup')
+  })
+})
+
+describe('new seed meals reach existing installs once', () => {
+  it('adds the MIND smoothie to an older protocol, and not again after it is deleted', async () => {
+    const d = new BrainHealthDB('s1')
+    await ensureSeed(d)
+    // an install made before the smoothie existed: no smoothie, nothing marked as seeded
+    const cur = await currentProtocol(d)
+    await d.protocols.put({ ...cur, version: cur.version + 1, mealTemplates: cur.mealTemplates.filter((m) => m.key !== 'meal_mind_smoothie') })
+    await updateProfile({ seededMeals: undefined }, d)
+    await ensureSeed(d)
+    const meal = (await currentProtocol(d)).mealTemplates.find((m) => m.key === 'meal_mind_smoothie')
+    expect(meal?.servings).toEqual([
+      { dietGroupKey: 'leafy_greens', amount: 2 },
+      { dietGroupKey: 'berries', amount: 1 },
+      { dietGroupKey: 'nuts', amount: 1 },
+      { dietGroupKey: 'whole_grains', amount: 1 },
+    ])
+    const after = await currentProtocol(d)
+    await saveMealTemplates(after.mealTemplates.filter((m) => m.key !== 'meal_mind_smoothie'), d)
+    await ensureSeed(d)
+    expect((await currentProtocol(d)).mealTemplates.some((m) => m.key === 'meal_mind_smoothie')).toBe(false)
   })
 })

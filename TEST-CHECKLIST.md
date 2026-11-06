@@ -1,6 +1,6 @@
 # Brain Health: phone test checklist
 
-Tick as you go. Items marked 📱 can only be checked on the real phone. Last updated for Build 6 (v0.4.0).
+Tick as you go. Items marked 📱 can only be checked on the real phone. Last updated for Build 7 (v0.4.1).
 
 ## 0. Install
 - [ ] APK installs over the old app and your data is still there
@@ -19,6 +19,8 @@ Tick as you go. Items marked 📱 can only be checked on the real phone. Last up
 - [ ] Airplane mode: import says you're offline; the rest of the app still works
 
 ## 2. Import a recipe and edit meals (new)
+- [ ] Eat → Usual meals has "MIND smoothie (workout)"; tap Add: 2 leafy greens, 1 berries, 1 nuts, 1 whole grains log (Undo works)
+- [ ] If you delete that meal in Edit meals, it stays deleted after restarting the app
 - [ ] Eat → Import it → paste a recipe → Read it → servings look sensible
 - [ ] Change a serving, remove a group, Add to usual meals, Undo works
 - [ ] Eat → Edit meals: add, rename, change servings, reorder (↑ ↓), delete, Save
