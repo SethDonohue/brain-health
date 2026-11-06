@@ -18,6 +18,8 @@ import { EditMealsSheet, EditTargetsSheet, MindAboutSheet } from './sheets/EatSh
 import { ImportSheet } from './sheets/ImportSheet'
 import { useUi, type Tab } from './store'
 import { onShared } from './ai/shareIn'
+import { autoBackupIfDue, shareFullBackup, shouldNudgeShare } from './db/autoBackup'
+import { updateProfile } from './db/repo'
 import { cx, ToastHost } from './ui/primitives'
 
 export const TAB_LABELS: Record<Tab, string> = { today: 'Today', sleep: 'Sleep', eat: 'Eat', train: 'Train', week: 'Week' }
@@ -31,6 +33,7 @@ export default function App() {
   const home = useRef<Tab>(order[0])
   home.current = order[0]
   const landed = useRef(false)
+  const onboardedForBackup = !!profile?.onboarded
 
   // Open on the first tab in the user's order, once per launch.
   useEffect(() => {
@@ -62,6 +65,23 @@ export default function App() {
       void sub.then((h) => h.remove())
     }
   }, [])
+
+  // Once per launch: a daily automatic backup, and a weekly offer to send one off the phone.
+  const backedUp = useRef(false)
+  useEffect(() => {
+    if (!onboardedForBackup || backedUp.current) return
+    backedUp.current = true
+    void (async () => {
+      await autoBackupIfDue()
+      if (await shouldNudgeShare()) {
+        await updateProfile({ lastBackupNudgeAt: Date.now() })
+        useUi.getState().showToast({
+          message: 'Backups are saved on this phone. Send one to Drive or Files?',
+          action: { label: 'Send', run: () => void shareFullBackup().catch(() => {}) },
+        })
+      }
+    })()
+  })
 
   // Something shared to Brain Health from another app opens the import preview.
   const onboarded = !!profile?.onboarded

@@ -104,3 +104,28 @@ describe('shared items', () => {
     expect(sharedToInput({ mime: 'application/zip', base64: 'AA' })).toBeNull()
   })
 })
+
+describe('workout import', () => {
+  it('turns a workout into exercises with unique keys', async () => {
+    const { extractRoutine, exercisesFromDraft } = await import('../extract')
+    const fetcher = (async () =>
+      ok({
+        exercises: [
+          { name: 'Goblet squat', sets: 3, reps_min: 10, reps_max: 10, weighted: true },
+          { name: 'Push-ups', sets: 3, reps_min: 12, weighted: false },
+          { name: 'Plank', sets: 3, hold_seconds: 45 },
+          { name: 'Leg press', reps_min: 8, reps_max: 12 },
+        ],
+      })) as unknown as typeof fetch
+    const drafts = await extractRoutine('k', { kind: 'text', text: 'Goblet squat 3x10, push-ups 3x12, plank 3x45s, leg press 8-12' }, fetcher)
+    expect(drafts[0]).toMatchObject({ sets: 3, target: { kind: 'reps', min: 10, max: 10 }, weighted: true })
+    expect(drafts[1]).toMatchObject({ target: { kind: 'reps', min: 12, max: 12 }, weighted: false })
+    expect(drafts[2]).toMatchObject({ target: { kind: 'hold', minSec: 45, maxSec: 45 }, weighted: false })
+    expect(drafts[3]).toMatchObject({ sets: 3, target: { kind: 'reps', min: 8, max: 12 } })
+    const ex = exercisesFromDraft(drafts, protocolV1.workout.exercises)
+    const keys = ex.flatMap((e) => [e.key, ...e.variants.map((v) => v.key)])
+    const existing = protocolV1.workout.exercises.flatMap((e) => [e.key, ...e.variants.map((v) => v.key)])
+    expect(new Set(keys).size).toBe(keys.length)
+    expect(keys.filter((k) => existing.includes(k))).toEqual([]) // "leg_press" already exists, so it gets a new key
+  })
+})

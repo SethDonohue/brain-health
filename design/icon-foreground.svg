@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108">
+  <!-- brain from above: two hemispheres in teal with folds, artwork kept inside the 66dp safe zone -->
+  <g fill="#4cb5bb">
+    <path d="M53 33c-4-3-10-3-14-1-6 0-11 5-11 11-3 3-4 8-2 12-2 4-1 10 3 13 1 6 7 10 13 9 4 2 9 1 11-2z"/>
+    <path d="M55 33c4-3 10-3 14-1 6 0 11 5 11 11 3 3 4 8 2 12 2 4 1 10-3 13-1 6-7 10-13 9-4 2-9 1-11-2z"/>
+  </g>
+  <g fill="none" stroke="#17212b" stroke-width="2.4" stroke-linecap="round">
+    <path d="M46 37c-3 2-3 5 0 7s3 5 0 7"/>
+    <path d="M35 40c2 3 6 4 8 2"/>
+    <path d="M30 62c3 0 6 2 6 5"/>
+    <path d="M45 66c-3 2-3 5 0 8"/>
+    <path d="M62 37c3 2 3 5 0 7s-3 5 0 7"/>
+    <path d="M73 40c-2 3-6 4-8 2"/>
+    <path d="M78 62c-3 0-6 2-6 5"/>
+    <path d="M63 66c3 2 3 5 0 8"/>
+  </g>
+  <!-- a heartbeat line across the middle: brain and body health -->
+  <path d="M22 56h14l4-7 6 14 5-11 3 4h32" fill="none" stroke="#f2f6f8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

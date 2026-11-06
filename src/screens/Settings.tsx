@@ -1,5 +1,9 @@
-import { useRef, useState } from 'react'
-import { backupName, buildBackup, restoreBackup, shareFile, type Backup } from '../db/backup'
+import { Capacitor } from '@capacitor/core'
+import { format } from 'date-fns'
+import { backupNow, KEEP, listBackups, readSaved, shareFullBackup, type SavedBackup } from '../db/autoBackup'
+import { useLiveQuery } from 'dexie-react-hooks'
+import { useEffect, useRef, useState } from 'react'
+import { restoreBackup, type Backup } from '../db/backup'
 import { db } from '../db/db'
 import { alive, clearUsualWeek, movePlanned, removeCustomActivity, restoreCustomActivity, updateProfile } from '../db/repo'
 import { getApiKey, ImportError, MODEL, setApiKey, testKey } from '../ai/extract'
@@ -204,6 +208,74 @@ function Chevron({ up }: { up?: boolean }) {
 }
 
 /** Export a full backup, or replace everything on this phone with one (two taps, with what's in the file shown first). */
+/** Daily automatic backups: on/off, when and where the last one went, back up now, restore a saved one. */
+function AutoBackups({ onRestore, onError }: { onRestore: (b: Backup) => void; onError: (m: string) => void }) {
+  const p = useProfile()
+  const [saved, setSaved] = useState<SavedBackup[] | null>(null)
+  const [busy, setBusy] = useState(false)
+  const native = Capacitor.isNativePlatform()
+  useEffect(() => {
+    void listBackups().then(setSaved)
+  }, [p?.lastAutoBackupAt])
+  if (!p) return null
+  const on = p.autoBackup !== false
+  const where = p.autoBackupPlace === 'documents' ? 'Documents/BrainHealth on this phone' : 'the app’s own storage (removed if you uninstall)'
+  return (
+    <div className="mt-4 border-t border-line pt-3">
+      <Toggle label="Automatic daily backup" checked={on} onChange={(v) => void updateProfile({ autoBackup: v })} />
+      <p className="text-sm text-ink-2">
+        {!native
+          ? 'Automatic backups run in the Android app.'
+          : p.lastAutoBackupAt
+            ? `Last backup ${format(p.lastAutoBackupAt, 'MMM d, h:mm a')}, saved in ${where}. Keeps the last ${KEEP}.`
+            : 'No automatic backup yet. One is made when you open the app each day.'}
+      </p>
+      {native && (
+        <Button
+          variant="outline"
+          className="mt-2 w-full"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true)
+            try {
+              await backupNow()
+            } catch (e) {
+              onError(`Backup failed: ${(e as Error).message}`)
+            }
+            setBusy(false)
+          }}
+        >
+          {busy ? 'Backing up…' : 'Back up now'}
+        </Button>
+      )}
+      {!!saved?.length && (
+        <ul className="mt-3 divide-y divide-line rounded-xl border border-line">
+          {saved.map((b) => (
+            <li key={`${b.place}/${b.name}`} className="flex items-center justify-between gap-2 pl-3">
+              <span className="min-w-0 text-sm">
+                {b.name.replace('brain-health-auto-', '').replace('.json', '').replace(/^(\d{4}-\d{2}-\d{2})-(\d{2})(\d{2})$/, '$1 $2:$3')}
+                <span className="block text-xs text-ink-3">{b.place === 'documents' ? 'Documents' : 'App storage'}</span>
+              </span>
+              <button
+                className="min-h-11 shrink-0 px-3 text-sm font-medium text-moderate"
+                onClick={async () => {
+                  try {
+                    onRestore((await readSaved(b)) as Backup)
+                  } catch {
+                    onError('That backup file couldn’t be read.')
+                  }
+                }}
+              >
+                Restore
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 function BackupRestore() {
   const toast = useUi((s) => s.showToast)
   const input = useRef<HTMLInputElement>(null)
@@ -242,7 +314,7 @@ function BackupRestore() {
           variant="outline"
           onClick={async () => {
             try {
-              await shareFile(backupName(), JSON.stringify(await buildBackup()), 'application/json')
+              await shareFullBackup()
             } catch (e) {
               if (!/cancel/i.test(String(e))) toast({ message: `Export failed: ${(e as Error).message}` })
             }
@@ -255,6 +327,7 @@ function BackupRestore() {
         </Button>
         <input ref={input} type="file" accept="application/json,.json" className="hidden" onChange={(e) => void pick(e.target.files?.[0])} />
       </div>
+      <AutoBackups onRestore={(backup) => setPending({ backup, rows: Object.values(backup.tables).reduce((a, t) => a + (Array.isArray(t) ? t.length : 0), 0) })} onError={setError} />
       {error && <p className="mt-2 text-sm text-red">{error}</p>}
       {pending && (
         <div className="mt-3 rounded-xl bg-amber-soft p-3 text-sm">
@@ -277,7 +350,7 @@ function BackupRestore() {
 
 /** The user's own Anthropic API key for imports. Kept on this phone only, never in backups. */
 function AiKey() {
-  const [saved, setSaved] = useState(getApiKey())
+  const saved = useLiveQuery(() => getApiKey(), []) ?? ''
   const [draft, setDraft] = useState('')
   const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null)
   const [busy, setBusy] = useState(false)
@@ -290,8 +363,7 @@ function AiKey() {
     setStatus(null)
     try {
       await testKey(k)
-      setApiKey(k)
-      setSaved(k)
+      await setApiKey(k)
       setDraft('')
       setStatus({ ok: true, text: 'Key saved and working.' })
     } catch (e) {
@@ -308,8 +380,7 @@ function AiKey() {
           <Button
             variant="outline"
             onClick={() => {
-              setApiKey('')
-              setSaved('')
+              void setApiKey('')
               setStatus(null)
             }}
           >

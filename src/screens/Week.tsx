@@ -1,7 +1,8 @@
+import { shareFullBackup } from '../db/autoBackup'
 import { format } from 'date-fns'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useState } from 'react'
-import { backupName, buildBackup, sessionsCsv, shareFile } from '../db/backup'
+import { sessionsCsv, shareFile } from '../db/backup'
 import { db } from '../db/db'
 import { alive } from '../db/repo'
 import { addDaysKey, formatDuration, fromDateKey, weekStartOf } from '../domain/dates'
@@ -382,7 +383,7 @@ function Export({ protocol }: { protocol: ProtocolVersion }) {
     <Card title="Your data">
       <p className="text-sm text-ink-2">Everything stays on this phone. Export a backup to keep a copy in Drive or Files; restore it from Settings.</p>
       <div className="mt-3 flex flex-col gap-2">
-        <Button variant="outline" onClick={() => void run(async () => shareFile(backupName(), JSON.stringify(await buildBackup()), 'application/json'))}>
+        <Button variant="outline" onClick={() => void run(() => shareFullBackup())}>
           Export full backup (JSON)
         </Button>
         <Button

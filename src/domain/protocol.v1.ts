@@ -270,6 +270,17 @@ export const protocolV1: ProtocolVersion = {
         { dietGroupKey: 'whole_grains', amount: 1 },
       ],
     },
+    {
+      // half of the smoothie: one before a workout or pickleball, one after
+      key: 'meal_mind_smoothie_half',
+      label: 'MIND smoothie, half',
+      servings: [
+        { dietGroupKey: 'leafy_greens', amount: 1 },
+        { dietGroupKey: 'berries', amount: 0.5 },
+        { dietGroupKey: 'nuts', amount: 0.5 },
+        { dietGroupKey: 'whole_grains', amount: 0.5 },
+      ],
+    },
   ],
   drinkPresets: [
     { key: 'brewed_coffee', label: 'Brewed coffee', defaultMg: 95 },

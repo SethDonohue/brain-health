@@ -1,5 +1,5 @@
 /** What an import reads into: planned sessions (bookings, schedules) or a usual meal (a recipe). */
-export type ImportMode = 'sessions' | 'meal'
+export type ImportMode = 'sessions' | 'meal' | 'routine'
 
 /** Content handed to the importer: a picked file, a shared screenshot, or pasted text. */
 export type SharedInput =

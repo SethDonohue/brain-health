@@ -45,6 +45,13 @@ export interface Profile {
   usualWeek?: UsualWeekItem[]
   /** keys of meals added to the user's usual meals by an app update, so a deleted one isn't added back */
   seededMeals?: string[]
+  /** automatic daily backups; on unless turned off */
+  autoBackup?: boolean
+  lastAutoBackupAt?: number
+  autoBackupPlace?: 'documents' | 'app'
+  /** last time a full backup was shared off the phone (Drive, Files, email) */
+  lastSharedAt?: number
+  lastBackupNudgeAt?: number
   updatedAt: number
 }
 

@@ -9,6 +9,7 @@ import type {
   CaffeineLog,
   CustomActivity,
   DrinkPreset,
+  Exercise,
   CustomActivityKey,
   Intensity,
   IsoWeekday,
@@ -65,7 +66,7 @@ export async function ensureSeed(d: BrainHealthDB = db): Promise<void> {
 }
 
 /** Meals the protocol seed gained since this phone's protocol was made, added once; deleting one keeps it deleted. */
-const NEW_SEED_MEALS = ['meal_mind_smoothie']
+const NEW_SEED_MEALS = ['meal_mind_smoothie', 'meal_mind_smoothie_half']
 
 async function addNewSeedMeals(d: BrainHealthDB) {
   const profile = await getProfile(d)
@@ -573,3 +574,11 @@ export async function saveMealTemplates(mealTemplates: MealTemplate[], d: BrainH
 }
 
 export const seedMealTemplates = (): MealTemplate[] => structuredClone(protocolV1.mealTemplates)
+
+/** Save the strength workout's exercises as a new protocol version. Returns the version (for undo). */
+export async function saveWorkoutExercises(exercises: Exercise[], d: BrainHealthDB = db): Promise<number> {
+  const cur = await currentProtocol(d)
+  const next: ProtocolVersion = { ...cur, version: cur.version + 1, effectiveFrom: toDateKey(Date.now()), workout: { ...cur.workout, exercises } }
+  await d.protocols.put(validateProtocol(next))
+  return next.version
+}

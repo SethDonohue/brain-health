@@ -4,6 +4,7 @@ import './index.css'
 import App from './App.tsx'
 import { db } from './db/db'
 import { ensureSeed } from './db/repo'
+import { migrateKeyFromLocalStorage } from './ai/extract'
 
 async function boot() {
   // Ask the browser not to evict our IndexedDB under storage pressure.
@@ -14,6 +15,7 @@ async function boot() {
   }
   await db.open()
   await ensureSeed()
+  await migrateKeyFromLocalStorage()
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
       <App />

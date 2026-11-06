@@ -1,5 +1,11 @@
 import Dexie, { type EntityTable } from 'dexie'
 
+/** Device-only values such as the Claude API key. Never exported in backups or cleared by a restore. */
+export interface Secret {
+  key: string
+  value: string
+}
+
 export interface SuggestionState {
   id: string
   status: 'dismissed'
@@ -32,6 +38,7 @@ export class BrainHealthDB extends Dexie {
   caffeineLogs!: EntityTable<CaffeineLog, 'id'>
   customActivities!: EntityTable<CustomActivity, 'key'>
   suggestions!: EntityTable<SuggestionState, 'id'>
+  secrets!: EntityTable<Secret, 'key'>
 
   constructor(name = 'brain-health') {
     super(name)
@@ -52,6 +59,8 @@ export class BrainHealthDB extends Dexie {
     this.version(2).stores({ customActivities: 'key' })
     // v3: dismissed plan suggestions (F6.6), keyed by rule and week.
     this.version(3).stores({ suggestions: 'id' })
+    // v4: device-only secrets (the Claude API key), kept out of backups.
+    this.version(4).stores({ secrets: 'key' })
   }
 }
 

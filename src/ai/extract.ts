@@ -1,5 +1,6 @@
 import { z } from 'zod'
-import type { ActivityType, DietGroup, MealTemplate } from '../domain/types'
+import { db, type BrainHealthDB } from '../db/db'
+import type { ActivityType, DietGroup, Exercise, ExerciseTarget, MealTemplate } from '../domain/types'
 import type { ImportedSession } from '../db/repo'
 import type { SharedInput } from './types'
 
@@ -8,19 +9,29 @@ export const MODEL = 'claude-haiku-5-5'
 const API = 'https://api.anthropic.com/v1/messages'
 const KEY_STORE = 'bh.anthropicKey'
 
-export function getApiKey(): string {
-  try {
-    return localStorage.getItem(KEY_STORE) ?? ''
-  } catch {
-    return ''
-  }
+/** The user's Claude API key, kept in the database's device-only table (not in backups). */
+export async function getApiKey(d: BrainHealthDB = db): Promise<string> {
+  return (await d.secrets.get(KEY_STORE))?.value ?? ''
 }
-export function setApiKey(key: string) {
+export async function setApiKey(key: string, d: BrainHealthDB = db) {
+  if (key.trim()) await d.secrets.put({ key: KEY_STORE, value: key.trim() })
+  else await d.secrets.delete(KEY_STORE)
+}
+
+/** Build 6 kept the key in localStorage; move it into the database once, then remove it there. */
+export async function migrateKeyFromLocalStorage(d: BrainHealthDB = db) {
+  let old: string | null = null
   try {
-    if (key) localStorage.setItem(KEY_STORE, key.trim())
-    else localStorage.removeItem(KEY_STORE)
+    old = localStorage.getItem(KEY_STORE)
   } catch {
-    /* storage unavailable: the key just won't persist */
+    return
+  }
+  if (!old) return
+  if (!(await getApiKey(d))) await setApiKey(old, d)
+  try {
+    localStorage.removeItem(KEY_STORE)
+  } catch {
+    /* ignore */
   }
 }
 
@@ -292,4 +303,113 @@ export function sharedToInput(item: { mime?: string; text?: string; base64?: str
   if (item.mime === 'application/pdf') return { kind: 'pdf', base64: item.base64, name: item.name }
   if (item.mime?.startsWith('image/')) return { kind: 'image', mime: item.mime === 'image/jpg' ? 'image/jpeg' : item.mime, base64: item.base64, name: item.name }
   return null
+}
+
+/* ---------- a strength workout ---------- */
+
+const routineOut = z.object({
+  exercises: z.array(
+    z.object({
+      name: z.string(),
+      sets: z.number().int().min(1).max(10).nullish(),
+      reps_min: z.number().int().min(1).nullish(),
+      reps_max: z.number().int().min(1).nullish(),
+      hold_seconds: z.number().int().min(1).nullish(),
+      weighted: z.boolean().nullish(),
+      cue: z.string().nullish(),
+    }),
+  ),
+})
+
+export interface ExerciseDraft {
+  name: string
+  sets: number
+  target: ExerciseTarget
+  weighted: boolean
+  cue: string
+}
+
+export function toRoutineDraft(raw: unknown): ExerciseDraft[] {
+  const parsed = routineOut.safeParse(raw)
+  if (!parsed.success) throw new ImportError('Claude’s answer didn’t have the expected shape. Try again.')
+  return parsed.data.exercises
+    .filter((e) => e.name.trim())
+    .map((e) => {
+      const hold = e.hold_seconds ?? undefined
+      const min = e.reps_min ?? e.reps_max ?? 10
+      const max = Math.max(min, e.reps_max ?? min)
+      return {
+        name: e.name.trim(),
+        sets: e.sets ?? 3,
+        target: hold ? { kind: 'hold' as const, minSec: hold, maxSec: hold } : { kind: 'reps' as const, min, max },
+        weighted: hold ? false : (e.weighted ?? true),
+        cue: e.cue?.trim() ?? '',
+      }
+    })
+}
+
+export async function extractRoutine(key: string, input: SharedInput, fetcher: typeof fetch = fetch): Promise<ExerciseDraft[]> {
+  const system = [
+    'You read a strength workout (a screenshot, a coach’s plan, notes) and list its exercises in order for a workout tracker.',
+    'For each exercise give sets, a rep range (reps_min and reps_max; the same number when one is given), or hold_seconds for timed holds such as planks.',
+    'weighted is true when the exercise uses a machine, dumbbells, barbell, kettlebell or cable; false for bodyweight.',
+    'Skip warm-ups, cardio and stretching. cue is one short form tip when the content gives one.',
+  ].join('\n')
+  const raw = await callTool(
+    key,
+    system,
+    [...inputBlocks(input), { type: 'text', text: 'List the strength exercises in this workout.' }],
+    {
+      name: 'add_workout',
+      description: 'The exercises in the workout, in order.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          exercises: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                name: { type: 'string' },
+                sets: { type: 'integer' },
+                reps_min: { type: 'integer' },
+                reps_max: { type: 'integer' },
+                hold_seconds: { type: 'integer' },
+                weighted: { type: 'boolean' },
+                cue: { type: 'string' },
+              },
+              required: ['name'],
+            },
+          },
+        },
+        required: ['exercises'],
+      },
+    },
+    fetcher,
+  )
+  return toRoutineDraft(raw)
+}
+
+const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || 'exercise'
+
+/** Exercises for the protocol, with keys that don't collide with each other or with `existing`. */
+export function exercisesFromDraft(drafts: ExerciseDraft[], existing: Exercise[]): Exercise[] {
+  const used = new Set(existing.flatMap((e) => [e.key, ...e.variants.map((v) => v.key)]))
+  const unique = (base: string) => {
+    let k = base
+    for (let i = 2; used.has(k); i++) k = `${base}_${i}`
+    used.add(k)
+    return k
+  }
+  return drafts.map((d) => {
+    const base = slug(d.name)
+    return {
+      key: unique(`ex_${base}`),
+      name: d.name,
+      targetSets: d.sets,
+      variants: [{ key: unique(base), name: d.name, target: d.target, weighted: d.weighted }],
+      cue: d.cue,
+      muscleGroups: [],
+    }
+  })
 }

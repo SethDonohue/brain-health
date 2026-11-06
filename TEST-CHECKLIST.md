@@ -1,10 +1,21 @@
 # Brain Health: phone test checklist
 
-Tick as you go. Items marked 📱 can only be checked on the real phone. Last updated for Build 7 (v0.4.1).
+Tick as you go. Items marked 📱 can only be checked on the real phone. Last updated for Build 8 (v0.5.0).
 
 ## 0. Install
 - [ ] APK installs over the old app and your data is still there
 - [ ] App opens on your first tab (set in Settings)
+- [ ] 📱 New brain icon on the home screen and in the app drawer
+- [ ] Settings → Import with Claude still shows your key (moved into the app's database, no need to paste it again)
+
+## New in Build 8
+- [ ] Settings → Backup: "Automatic daily backup" is on and shows a last backup time and where it was saved
+- [ ] 📱 Say whether it says Documents/BrainHealth or app storage (tells us if Android allowed the Documents folder)
+- [ ] 📱 Files app → Documents → BrainHealth has a brain-health-auto-… file
+- [ ] Back up now adds a new entry to the list; Restore on an entry asks before replacing
+- [ ] 📱 About a week later: a prompt offers to send a backup to Drive or Files
+- [ ] Train → Strength → Import a workout → paste a workout → check sets, reps, holds → Add or Replace → Undo works
+- [ ] Eat → Usual meals has "MIND smoothie, half": Add logs 1 greens, ½ berries, ½ nuts, ½ whole grains
 
 ## 1. Import bookings (new, test first)
 - [ ] Settings → Import with Claude → paste key → Save key → "Key saved and working"
@@ -24,7 +35,7 @@ Tick as you go. Items marked 📱 can only be checked on the real phone. Last up
 - [ ] Eat → Import it → paste a recipe → Read it → servings look sensible
 - [ ] Change a serving, remove a group, Add to usual meals, Undo works
 - [ ] Eat → Edit meals: add, rename, change servings, reorder (↑ ↓), delete, Save
-- [ ] Reset to protocol meals brings the original four back (then Save)
+- [ ] Reset to protocol meals brings the original six back (including both smoothies) (then Save)
 
 ## 3. Train
 - [ ] Repeat last week copies the plan; Undo restores it

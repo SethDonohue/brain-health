@@ -1,8 +1,9 @@
 import { format } from 'date-fns'
+import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useRef, useState } from 'react'
-import { extractMeal, extractSessions, fileToInput, getApiKey, ImportError, mealFromDraft, type MealDraft, type SessionDraft } from '../ai/extract'
+import { exercisesFromDraft, extractMeal, extractRoutine, extractSessions, fileToInput, getApiKey, ImportError, mealFromDraft, type ExerciseDraft, type MealDraft, type SessionDraft } from '../ai/extract'
 import type { ImportMode, SharedInput } from '../ai/types'
-import { applyImportedSessions, currentProtocol, dropProtocolVersion, saveMealTemplates, undoPlanChange } from '../db/repo'
+import { applyImportedSessions, currentProtocol, dropProtocolVersion, saveMealTemplates, saveWorkoutExercises, undoPlanChange } from '../db/repo'
 import { formatClock, formatDuration, fromDateKey } from '../domain/dates'
 import { servingStep } from '../domain/mind'
 import type { ActivityKey, DietGroup } from '../domain/types'
@@ -11,7 +12,7 @@ import { useProfile, useProtocol, useToday } from '../hooks'
 import { useUi } from '../store'
 import { Button, cx, Segmented, Sheet, Stepper } from '../ui/primitives'
 
-type Step = { at: 'input' } | { at: 'reading' } | { at: 'sessions'; drafts: SessionDraft[] } | { at: 'meal'; draft: MealDraft }
+type Step = { at: 'input' } | { at: 'reading' } | { at: 'sessions'; drafts: SessionDraft[] } | { at: 'meal'; draft: MealDraft } | { at: 'routine'; drafts: ExerciseDraft[] }
 
 /** Read a screenshot, file or pasted text with Claude, then show an editable preview. Nothing saves until Save. */
 export function ImportSheet({ mode: initialMode = 'sessions', shared }: { mode?: ImportMode; shared?: SharedInput }) {
@@ -27,7 +28,7 @@ export function ImportSheet({ mode: initialMode = 'sessions', shared }: { mode?:
   const [step, setStep] = useState<Step>({ at: 'input' })
   const [error, setError] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
-  const key = getApiKey()
+  const key = useLiveQuery(() => getApiKey(), [])
 
   // A screenshot shared from another app arrives full size; shrink it like a picked file.
   useEffect(() => {
@@ -38,7 +39,7 @@ export function ImportSheet({ mode: initialMode = 'sessions', shared }: { mode?:
       .catch(() => {})
   }, [shared])
 
-  if (!protocol || !profile) return null
+  if (!protocol || !profile || key === undefined) return null
   const groups = protocol.dietGroups.filter((g) => !g.optional || (g.key === 'wine' && profile.wineEnabled))
   const activities = protocol.activityTypes.filter((a) => a.key !== 'rest' && !a.hidden)
 
@@ -60,15 +61,22 @@ export function ImportSheet({ mode: initialMode = 'sessions', shared }: { mode?:
     setStep({ at: 'reading' })
     try {
       if (mode === 'sessions') {
-        const drafts = await extractSessions(key, src, activities, today)
+        const drafts = await extractSessions(key ?? '', src, activities, today)
         if (!drafts.length) {
           setStep({ at: 'input' })
           return setError('No sessions found. Try a screenshot that shows the dates and times.')
         }
         setStep({ at: 'sessions', drafts })
-      } else {
-        const draft = await extractMeal(key, src, groups)
+      } else if (mode === 'meal') {
+        const draft = await extractMeal(key ?? '', src, groups)
         setStep({ at: 'meal', draft })
+      } else {
+        const drafts = await extractRoutine(key ?? '', src)
+        if (!drafts.length) {
+          setStep({ at: 'input' })
+          return setError('No exercises found. Try a clearer screenshot or paste the workout.')
+        }
+        setStep({ at: 'routine', drafts })
       }
     } catch (e) {
       setStep({ at: 'input' })
@@ -96,6 +104,20 @@ export function ImportSheet({ mode: initialMode = 'sessions', shared }: { mode?:
     toast({ message: `${meal.label} added to your usual meals`, action: { label: 'Undo', run: () => void dropProtocolVersion(v) } })
   }
 
+  const saveRoutine = async (drafts: ExerciseDraft[], replace: boolean) => {
+    const cur = await currentProtocol()
+    const kept = replace ? [] : cur.workout.exercises
+    const v = await saveWorkoutExercises([...kept, ...exercisesFromDraft(drafts, cur.workout.exercises)])
+    close()
+    toast({ message: replace ? `Workout replaced, ${drafts.length} exercises` : `Added ${drafts.length} exercises to your workout`, action: { label: 'Undo', run: () => void dropProtocolVersion(v) } })
+  }
+
+  if (step.at === 'routine')
+    return (
+      <Sheet title="Check the workout">
+        <RoutinePreview drafts={step.drafts} onBack={() => setStep({ at: 'input' })} onSave={saveRoutine} />
+      </Sheet>
+    )
   if (step.at === 'sessions')
     return (
       <Sheet title="Check the sessions">
@@ -119,12 +141,15 @@ export function ImportSheet({ mode: initialMode = 'sessions', shared }: { mode?:
           options={[
             { value: 'sessions', label: 'Bookings' },
             { value: 'meal', label: 'A meal' },
+            { value: 'routine', label: 'Workout' },
           ]}
         />
         <p className="mt-3 text-sm text-ink-2">
           {mode === 'sessions'
             ? 'A screenshot of your bookings, a class schedule, or a confirmation message. Sessions go into your weekly plan.'
-            : 'A recipe photo, file or pasted recipe. It becomes one of your usual meals on the Eat tab.'}
+            : mode === 'meal'
+              ? 'A recipe photo, file or pasted recipe. It becomes one of your usual meals on the Eat tab.'
+              : 'A strength workout from a coach, an app or your notes. Its exercises become your strength workout on the Train tab.'}
         </p>
 
         {!key ? (
@@ -150,7 +175,7 @@ export function ImportSheet({ mode: initialMode = 'sessions', shared }: { mode?:
               value={text}
               onChange={(e) => setText(e.target.value)}
               rows={4}
-              placeholder={mode === 'sessions' ? 'Tue Nov 10, 3:00–5:00 PM, Open Play' : 'Paste a recipe'}
+              placeholder={mode === 'sessions' ? 'Tue Nov 10, 3:00–5:00 PM, Open Play' : mode === 'meal' ? 'Paste a recipe' : 'Goblet squat 3×10, Push-ups 3×12, Plank 3×45s'}
               className="mt-2 w-full rounded-xl border border-line bg-bg px-3 py-2 text-base"
             />
 
@@ -360,6 +385,107 @@ export function MealEditor({
           </select>
         </label>
       )}
+    </div>
+  )
+}
+
+function RoutinePreview({ drafts: initial, onBack, onSave }: { drafts: ExerciseDraft[]; onBack: () => void; onSave: (d: ExerciseDraft[], replace: boolean) => Promise<void> }) {
+  const [drafts, setDrafts] = useState(initial)
+  const [how, setHow] = useState<'replace' | 'add'>('add')
+  const set = (i: number, patch: Partial<ExerciseDraft>) => setDrafts(drafts.map((d, j) => (j === i ? { ...d, ...patch } : d)))
+  const num = 'mt-1 block min-h-11 w-full rounded-lg border border-line bg-bg px-2 text-base text-ink'
+  return (
+    <div className="px-4 pt-3 pb-2">
+      <p className="text-sm text-ink-2">
+        Found {drafts.length} {drafts.length === 1 ? 'exercise' : 'exercises'}. Your past sets stay in your history.
+      </p>
+      <ul className="mt-3 space-y-3">
+        {drafts.map((d, i) => (
+          <li key={i} className="rounded-xl border border-line p-3">
+            <div className="flex items-start gap-2">
+              <label className="min-w-0 flex-1 text-xs text-ink-2">
+                Exercise
+                <input value={d.name} onChange={(e) => set(i, { name: e.target.value })} className={num} />
+              </label>
+              <button onClick={() => setDrafts(drafts.filter((_, j) => j !== i))} className="mt-4 min-h-11 min-w-11 shrink-0 px-2 text-sm font-medium text-ink-2">
+                Remove
+              </button>
+            </div>
+            <div className="mt-2 grid grid-cols-[repeat(auto-fit,minmax(5.5rem,1fr))] gap-2">
+              <label className="text-xs text-ink-2">
+                Sets
+                <input type="number" inputMode="numeric" min={1} max={10} value={d.sets} onChange={(e) => set(i, { sets: Math.max(1, Number(e.target.value) || 1) })} className={num} />
+              </label>
+              {d.target.kind === 'reps' ? (
+                <>
+                  <label className="text-xs text-ink-2">
+                    Reps from
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min={1}
+                      value={d.target.min}
+                      onChange={(e) => d.target.kind === 'reps' && set(i, { target: { ...d.target, min: Math.max(1, Number(e.target.value) || 1) } })}
+                      className={num}
+                    />
+                  </label>
+                  <label className="text-xs text-ink-2">
+                    to
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min={1}
+                      value={d.target.max}
+                      onChange={(e) => d.target.kind === 'reps' && set(i, { target: { ...d.target, max: Math.max(1, Number(e.target.value) || 1) } })}
+                      className={num}
+                    />
+                  </label>
+                </>
+              ) : (
+                <label className="text-xs text-ink-2">
+                  Hold, seconds
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min={5}
+                    value={d.target.maxSec}
+                    onChange={(e) => {
+                      const s = Math.max(5, Number(e.target.value) || 5)
+                      set(i, { target: { kind: 'hold', minSec: s, maxSec: s } })
+                    }}
+                    className={num}
+                  />
+                </label>
+              )}
+            </div>
+            {d.target.kind === 'reps' && (
+              <label className="mt-2 flex min-h-11 items-center gap-3 text-sm">
+                <input type="checkbox" checked={d.weighted} onChange={(e) => set(i, { weighted: e.target.checked })} className="h-5 w-5 accent-[var(--moderate)]" />
+                Uses weight (shows a weight field)
+              </label>
+            )}
+          </li>
+        ))}
+      </ul>
+      <div className="mt-4">
+        <Segmented
+          label="How to save"
+          value={how}
+          onChange={setHow}
+          options={[
+            { value: 'add', label: 'Add to my workout' },
+            { value: 'replace', label: 'Replace it' },
+          ]}
+        />
+      </div>
+      <div className="sticky bottom-0 mt-4 flex gap-2 bg-surface pt-2">
+        <Button variant="outline" onClick={onBack}>
+          Back
+        </Button>
+        <Button className="flex-1" disabled={!drafts.length || drafts.some((d) => !d.name.trim())} onClick={() => void onSave(drafts, how === 'replace')}>
+          {how === 'replace' ? 'Replace workout' : `Add ${drafts.length} exercises`}
+        </Button>
+      </div>
     </div>
   )
 }

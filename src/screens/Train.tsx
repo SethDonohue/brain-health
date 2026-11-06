@@ -368,6 +368,9 @@ function Strength({ protocol, profile, week, today }: { protocol: ProtocolVersio
         <Button className="mt-3 w-full" onClick={() => void start()}>
           Start strength workout
         </Button>
+        <Button variant="outline" className="mt-2 w-full" onClick={() => open({ kind: 'import', mode: 'routine' })}>
+          Import a workout
+        </Button>
         <ul className="mt-4 divide-y divide-line border-t border-line">
           {protocol.workout.exercises.map((ex) => {
             const lastAny = data
