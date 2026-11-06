@@ -112,7 +112,7 @@ Or `npm run apk` for all three steps.
 - **Signing key:** the key that signs the APKs isn't in this repository. Put `brainhealth.keystore` and `keystore.properties` (with `storeFile`, `storePassword`, `keyAlias`, `keyPassword`) in `android/`; both are ignored by git. Signed builds install over the existing app and keep its data. Without the key, Gradle signs with the default debug key: the build works but can't update an installed copy.
 - Don't edit `android/app/src/main/assets/public`; `cap sync` generates it.
 
-APKs for each build are attached to this repository's GitHub Releases.
+Each build's APK can be attached to a GitHub Release (Releases → Draft a new release → attach the APK).
 
 ## Testing
 
