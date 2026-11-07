@@ -9,6 +9,7 @@ name: Release APK
 on:
   push:
     tags: ['v*']
+  workflow_dispatch: # the "Run workflow" button: builds from main and tags it v<versionName>
 
 permissions:
   contents: write
@@ -17,7 +18,7 @@ jobs:
   release:
     runs-on: ubuntu-latest
     env:
-      TAG: ${{ github.ref_name }}
+      TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
       # SHA-256 of the certificate the installed app was signed with; a different key can't update it
       EXPECTED_CERT: d88b43a70d3d7f776e14a5118ae3092c9130f627aea5f558b01b1cc96f67d769
     steps:
@@ -26,6 +27,10 @@ jobs:
       - name: Check the tag matches versionName
         run: |
           VERSION=$(grep -oP 'versionName "\K[^"]+' android/app/build.gradle)
+          if [ -z "$TAG" ]; then
+            TAG="v$VERSION" # started by hand: tag main as v<versionName>
+            echo "TAG=$TAG" >> "$GITHUB_ENV"
+          fi
           if [ "v$VERSION" != "$TAG" ]; then
             echo "::error::Tag $TAG doesn't match versionName $VERSION in android/app/build.gradle"
             exit 1
@@ -82,7 +87,12 @@ jobs:
       - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$TAG" "brain-health-$TAG.apk" --title "Brain Health $TAG" --notes-from-tag --verify-tag
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            gh release create "$TAG" "brain-health-$TAG.apk" --title "Brain Health $TAG" --notes-from-tag --verify-tag
+          else
+            gh release create "$TAG" "brain-health-$TAG.apk" --title "Brain Health $TAG" --generate-notes --target "${{ github.sha }}"
+          fi
 
       - name: Remove the key from the runner
         if: always()
