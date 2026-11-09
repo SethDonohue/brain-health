@@ -4,14 +4,14 @@ A personal Android app for following a brain-health protocol: exercise, sleep ha
 
 Single user, offline-first, no account. Everything is stored on the phone.
 
-> **Status:** Milestone 1 (M1) in progress. Current build: v0.5.0 (versionCode 8).
+> **Status:** Milestone 1 (M1) in progress. Current build: v0.6.0 (versionCode 9).
 > This is a personal project, not a medical device or medical advice.
 
 ## Features
 
 **Today**
 - Weekly total exercise and weekly cardio at a glance (cardio counts vigorous minutes double; floor 150, target 300 moderate-equivalent minutes)
-- Today's planned sessions, with booked times
+- Today's planned sessions, with booked times (for example 3–5 PM)
 - One-tap bike commute logging and a full "Log activity" form with intensity
 - Custom activities (for example, hiking)
 - Cutoff times from your bedtime: caffeine, exercise and hot shower
@@ -28,6 +28,7 @@ Single user, offline-first, no account. Everything is stored on the phone.
 
 **Train**
 - Weekly targets with a movable plan: press and hold to drag a session to another day, with a rest-day check
+- Optional start time and length on planned sessions (shown as 3–5 PM, sorted by time); Repeat last week keeps times, the usual week doesn't
 - Repeat last week, and save a usual week that new weeks start from
 - Strength player with per-set logging, weight carry-down and a rest timer
 - Import bookings (for example, a court-booking screenshot) or a strength workout (see AI import)

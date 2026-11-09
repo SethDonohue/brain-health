@@ -22,26 +22,24 @@ export function weekFromUsual(weekStart: string, items: UsualWeekItem[]): Planne
     date: dateForWeekday(weekStart, i.weekday),
     activityType: i.activityType,
     slot: i.slot,
-    origin: 'template' as const,
-    ...(i.startTime ? { startTime: i.startTime } : {}),
-    ...(i.durationMin ? { durationMin: i.durationMin } : {}),
-    ...(i.note ? { note: i.note } : {}),
+    origin: 'template' as const, // times and notes saved by Build 7–8 are ignored: the usual week is untimed
   }))
 }
 
-/** A week's planned sessions as a usual week (weekday-based, keeps times and notes). */
+/** A week's planned sessions as a usual week (weekday and slot only: bookings change week to week, so times and booking notes aren't kept). */
 export function usualFromWeek(planned: PlannedSession[]): UsualWeekItem[] {
   return planned
     .filter((p) => !p.deletedAt)
-    .sort((a, b) => a.date.localeCompare(b.date) || (a.startTime ?? a.slot).localeCompare(b.startTime ?? b.slot))
-    .map((p) => ({
-      weekday: isoWeekday(p.date),
-      activityType: p.activityType,
-      slot: p.slot,
-      ...(p.startTime ? { startTime: p.startTime } : {}),
-      ...(p.durationMin ? { durationMin: p.durationMin } : {}),
-      ...(p.note ? { note: p.note } : {}),
-    }))
+    .sort((a, b) => a.date.localeCompare(b.date) || byTime(a, b))
+    .map((p) => ({ weekday: isoWeekday(p.date), activityType: p.activityType, slot: p.slot }))
+}
+
+/** Order within a day: timed sessions earliest first, then untimed ones (morning before afternoon). */
+export function byTime(a: Pick<PlannedSession, 'startTime' | 'slot'>, b: Pick<PlannedSession, 'startTime' | 'slot'>) {
+  if (a.startTime && b.startTime) return a.startTime.localeCompare(b.startTime)
+  if (a.startTime) return -1
+  if (b.startTime) return 1
+  return a.slot.localeCompare(b.slot)
 }
 
 /** 'HH:mm' to a slot: before noon is morning. */

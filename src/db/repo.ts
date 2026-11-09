@@ -119,8 +119,37 @@ export async function movePlanned(id: string, toDate: string, d: BrainHealthDB =
   })
 }
 
-export async function addPlanned(weekStart: string, date: string, activityType: ActivityKey, slot: 'am' | 'pm', d: BrainHealthDB = db) {
-  await d.plannedSessions.add({ ...newRecord(), weekStart, date, activityType, slot, origin: 'added' })
+export async function addPlanned(
+  weekStart: string,
+  date: string,
+  activityType: ActivityKey,
+  slot: 'am' | 'pm',
+  d: BrainHealthDB = db,
+  time?: { startTime: string; durationMin?: number },
+) {
+  await d.plannedSessions.add({
+    ...newRecord(),
+    weekStart,
+    date,
+    activityType,
+    slot: time ? slotOf(time.startTime) : slot,
+    origin: 'added',
+    ...(time ? { startTime: time.startTime } : {}),
+    ...(time?.durationMin ? { durationMin: time.durationMin } : {}),
+  })
+}
+
+/** Set or clear a planned session's start time and length. Clearing keeps its morning/afternoon slot. */
+export async function setPlannedTime(id: string, time: { startTime: string; durationMin?: number } | null, d: BrainHealthDB = db) {
+  const p = await d.plannedSessions.get(id)
+  if (!p) return
+  const { startTime: _s, durationMin: _d, ...rest } = p
+  await d.plannedSessions.put({
+    ...rest,
+    ...(time ? { startTime: time.startTime, slot: slotOf(time.startTime) } : {}),
+    ...(time?.durationMin ? { durationMin: time.durationMin } : {}),
+    updatedAt: now(),
+  })
 }
 
 export async function removePlanned(id: string, d: BrainHealthDB = db) {

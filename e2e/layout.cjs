@@ -37,6 +37,7 @@ const SHEETS = [
   ['Eat', /^Edit meals$/, 'edit-meals'],
   ['Train', /^Add a session on/, 'add-session'],
   ['Train', /^Import/, 'import'],
+  ['Train', /^Pickleball, 5–7 PM/, 'planned-timed'],
 ]
 
 const findings = []
@@ -190,6 +191,15 @@ async function seed(p) {
   await tryTap(/^Pastries & sweets:/, 1)
   await tryTap(/^Butter/, 3)
   await tryTap(/^Olive oil/, 2)
+  // a booked session with a time range, so plan chips are checked at their longest
+  await p.reload() // clears the Eat toasts, which can cover the buttons below (data stays)
+  await p.getByRole('button', { name: 'Commute leg' }).waitFor({ timeout: 8000 }).catch(() => {})
+  await goTab(p, 'Train')
+  for (const re of [/^Add a session on/, /^\+ Add a time/, /^2 h$/, /^Pickleball$/]) {
+    await tryTap(re)
+    await p.waitForTimeout(350) // let the sheet open
+  }
+  await p.waitForTimeout(300)
   await goTab(p, 'Today')
 }
 

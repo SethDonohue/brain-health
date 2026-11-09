@@ -1,12 +1,23 @@
 # Brain Health: phone test checklist
 
-Tick as you go. Items marked 📱 can only be checked on the real phone. Last updated for Build 8 (v0.5.0).
+Tick as you go. Items marked 📱 can only be checked on the real phone. Last updated for Build 9 (v0.6.0).
 
 ## 0. Install
 - [ ] APK installs over the old app and your data is still there
 - [ ] App opens on your first tab (set in Settings)
 - [ ] 📱 New brain icon on the home screen and in the app drawer
 - [ ] Settings → Import with Claude still shows your key (moved into the app's database, no need to paste it again)
+
+## New in Build 9: session times
+- [ ] Train: imported pickleball bookings show a range, e.g. "Pickleball 3–5 PM"
+- [ ] Sessions on a day are in time order; untimed ones come after timed ones
+- [ ] Tap a session → Set time → pick start and length → Save time: chip updates; Undo in the toast restores it
+- [ ] Change time and Clear time work; a bike commute and the rest day have no Set time
+- [ ] + on a day → "Add a time (optional)" → pick length → pick activity: it's added with that time
+- [ ] Log as done on a timed session fills in its start time and length
+- [ ] Today shows "3–5 PM" for today's booked session, and Tomorrow lists times
+- [ ] Repeat last week copies times; a new week started from your usual week has no times
+- [ ] 📱 Long chips (Mountain biking 5–6:30 PM) wrap neatly with Font size set to Large
 
 ## New in Build 8
 - [ ] Settings → Backup: "Automatic daily backup" is on and shows a last backup time and where it was saved

@@ -47,6 +47,17 @@ export const formatDuration = (min: number): string => {
   return `${h} h ${m}`
 }
 
+/** '15:00' + 120 min to '3–5 PM'; '11:00' + 90 to '11 AM–12:30 PM'; no length gives just the start. */
+export function formatTimeRange(start: string, durationMin?: number) {
+  if (!durationMin) return formatClock(start)
+  const [h, m] = start.split(':').map(Number)
+  const end = (h * 60 + m + durationMin) % (24 * 60)
+  const endStr = formatClock(`${String(Math.floor(end / 60)).padStart(2, '0')}:${String(end % 60).padStart(2, '0')}`)
+  const a = formatClock(start)
+  const sameHalf = a.slice(-2) === endStr.slice(-2)
+  return `${sameHalf ? a.slice(0, -3) : a}–${endStr}`
+}
+
 /** '15:00' to '3 PM', '15:30' to '3:30 PM' */
 export function formatClock(hhmm: string) {
   const [h, m] = hhmm.split(':').map(Number)

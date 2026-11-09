@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from 'react'
 import { db } from '../db/db'
 import { activeStrength, alive, repeatLastWeek, saveUsualWeek, startStrength, undoPlanChange } from '../db/repo'
 import { weekTotals } from '../domain/cardio'
-import { addDaysKey, formatClock, formatDuration, fromDateKey, weekDays } from '../domain/dates'
-import { checkRestDay, plannedStatus, targetProgress } from '../domain/plan'
+import { addDaysKey, formatDuration, formatTimeRange, fromDateKey, weekDays } from '../domain/dates'
+import { byTime, checkRestDay, plannedStatus, targetProgress } from '../domain/plan'
 import { historyFor, targetLabel } from '../domain/strength'
 import type { PlannedSession, Profile, ProtocolVersion, SessionLog, SetLog } from '../domain/types'
 import { fmtWeight, weightUnit } from '../domain/units'
@@ -214,7 +214,7 @@ function Planner({ week, protocol, today, editable }: { week: WeekData; protocol
       )}
       <ol className="divide-y divide-line overflow-hidden rounded-2xl bg-surface">
         {weekDays(week.weekStart).map((d) => {
-          const planned = week.planned.filter((p) => p.date === d)
+          const planned = week.planned.filter((p) => p.date === d).sort(byTime)
           const extra = week.logs.filter((l) => l.date === d && !l.plannedSessionId && l.status === 'done')
           const isToday = d === today
           const isOver = drag?.over === d && drag.planned.date !== d
@@ -280,7 +280,7 @@ function PlanChip({ p, protocol, logs, lifted, onPointerDown }: { p: PlannedSess
           useUi.getState().open({ kind: 'planned', planned: p })
         }
       }}
-      aria-label={`${label}, ${status === 'planned' ? 'planned' : status}. Tap for options, hold to drag.`}
+      aria-label={`${label}${p.startTime ? `, ${formatTimeRange(p.startTime, p.durationMin)}` : ''}, ${status === 'planned' ? 'planned' : status}. Tap for options, hold to drag.`}
       className={cx(
         'min-h-11 touch-manipulation select-none rounded-full border px-3 text-sm font-medium [-webkit-touch-callout:none]',
         lifted && 'opacity-30',
@@ -290,7 +290,12 @@ function PlanChip({ p, protocol, logs, lifted, onPointerDown }: { p: PlannedSess
       )}
     >
       {label}
-      {p.startTime && <span className="font-normal text-ink-2"> {formatClock(p.startTime)}</span>}
+      {p.startTime && (
+        <>
+          {' '}
+          <span className="num whitespace-nowrap font-normal text-ink-2">{formatTimeRange(p.startTime, p.durationMin)}</span>
+        </>
+      )}
     </button>
   )
 }

@@ -1,7 +1,7 @@
 import { format } from 'date-fns'
 import { weekTotals, type WeekTotals } from '../domain/cardio'
-import { addDaysKey, formatClock, formatDuration, formatTime, fromDateKey } from '../domain/dates'
-import { checkRestDay, intenseOnRestDay, plannedStatus, targetProgress } from '../domain/plan'
+import { addDaysKey, formatDuration, formatTime, formatTimeRange, fromDateKey } from '../domain/dates'
+import { byTime, checkRestDay, intenseOnRestDay, plannedStatus, targetProgress } from '../domain/plan'
 import { cutoffsFor } from '../domain/sleepTimes'
 import type { PlannedSession, Profile, ProtocolVersion, SessionLog } from '../domain/types'
 import { db } from '../db/db'
@@ -191,10 +191,10 @@ function Cutoffs({ today, profile, protocol }: { today: string; profile: Profile
 function TodayPlan({ today, week, protocol, profile }: { today: string; week: WeekData; protocol: ProtocolVersion; profile: Profile }) {
   const open = useUi((s) => s.open)
   const toast = useUi((s) => s.showToast)
-  const planned = week.planned.filter((p) => p.date === today)
+  const planned = week.planned.filter((p) => p.date === today).sort(byTime)
   const unplanned = week.logs.filter((l) => l.date === today && !l.plannedSessionId && l.status === 'done')
   const tomorrow = addDaysKey(today, 1)
-  const tomorrowPlan = week.planned.filter((p) => p.date === tomorrow)
+  const tomorrowPlan = week.planned.filter((p) => p.date === tomorrow).sort(byTime)
   const rest = checkRestDay(week.weekStart, week.planned, protocol.activityTypes)
   const restLogged = intenseOnRestDay(rest.restDate, week.logs, protocol.activityTypes)
   const restIsToday = planned.some((p) => p.activityType === 'rest')
@@ -243,7 +243,7 @@ function TodayPlan({ today, week, protocol, profile }: { today: string; week: We
 
       {!restIsToday && tomorrowPlan.length > 0 && (
         <p className="mt-4 text-sm text-ink-2">
-          Tomorrow: {tomorrowPlan.map((p) => activityOf(protocol, p.activityType)?.label).join(', ')}
+          Tomorrow: {tomorrowPlan.map((p) => `${activityOf(protocol, p.activityType)?.label ?? ''}${p.startTime ? ` ${formatTimeRange(p.startTime, p.durationMin)}` : ''}`).join(', ')}
         </p>
       )}
     </section>
@@ -274,7 +274,7 @@ function PlannedRow({
   const target = protocol.weeklyTargets.find((t) => t.activityType === p.activityType)
   const status = plannedStatus(p, logs)
   const doneLog = logs.find((l) => l.plannedSessionId === p.id && l.status === 'done')
-  const slot = p.startTime ? formatClock(p.startTime) : p.slot === 'am' ? 'Morning or midday' : 'Late afternoon'
+  const slot = p.startTime ? formatTimeRange(p.startTime, p.durationMin) : p.slot === 'am' ? 'Morning or midday' : 'Late afternoon'
 
   if (p.activityType === 'rest') {
     return (
@@ -295,7 +295,7 @@ function PlannedRow({
           <div className="font-medium">{a?.label}</div>
           <div className="text-sm text-ink-2">
             {slot}
-            {p.durationMin ? `, ${formatDuration(p.durationMin)}` : target && target.durationMax > 0 && `, ${formatDuration(target.durationMin)}–${formatDuration(target.durationMax)}`}
+            {p.startTime && p.durationMin ? '' : p.durationMin ? `, ${formatDuration(p.durationMin)}` : target && target.durationMax > 0 && `, ${formatDuration(target.durationMin)}–${formatDuration(target.durationMax)}`}
           </div>
           {p.note && <div className="text-sm text-ink-2">{p.note}</div>}
           {p.movedFromDate && <div className="text-xs text-ink-3">Moved from {format(fromDateKey(p.movedFromDate), 'EEEE')}</div>}
