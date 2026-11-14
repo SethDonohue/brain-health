@@ -4,7 +4,7 @@ A personal Android app for following a brain-health protocol: exercise, sleep ha
 
 Single user, offline-first, no account. Everything is stored on the phone.
 
-> **Status:** Milestone 1 (M1) in progress. Current build: v0.6.0 (versionCode 9).
+> **Status:** Milestone 1 (M1) in progress. Current build: v0.7.0 (versionCode 10).
 > This is a personal project, not a medical device or medical advice.
 
 ## Features
@@ -41,6 +41,7 @@ Single user, offline-first, no account. Everything is stored on the phone.
 **Settings**
 - Imperial or metric units (stored metric, converted for display)
 - Tab order, rest day, cardio goals, bedtime
+- Weekly targets: times per week and usual session length for each activity (applies from this week; past weeks keep the targets they had)
 - Automatic daily backups (keeps the last 7), back up now, restore from a file or a saved backup
 - Claude API key for imports
 

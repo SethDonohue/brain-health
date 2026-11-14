@@ -9,6 +9,7 @@ import { addDaysKey, formatDuration, fromDateKey, weekStartOf } from '../domain/
 import { QUALITY_LABELS } from '../domain/sleep'
 import type { Profile, ProtocolVersion } from '../domain/types'
 import { lateNightComparison, suggestions, summarizeWeek, weekStartsBack, type WeekInput, type WeekSummary } from '../domain/weekly'
+import { protocolForWeek } from '../domain/plan'
 import { activityOf, useProfile, useProtocol, useToday } from '../hooks'
 import { useUi } from '../store'
 import { Button, cx, Segmented } from '../ui/primitives'
@@ -27,7 +28,7 @@ export function Week() {
   const to = addDaysKey(thisWeek, 7)
 
   const data = useLiveQuery(async () => {
-    const [sessions, planned, servings, sleepLogs, checklist, caffeine, dismissed] = await Promise.all([
+    const [sessions, planned, servings, sleepLogs, checklist, caffeine, dismissed, versions] = await Promise.all([
       db.sessionLogs.where('date').between(from, to, true, true).toArray(),
       db.plannedSessions.where('date').between(from, to, true, true).toArray(),
       db.servingLogs.where('date').between(from, to, true, true).toArray(),
@@ -35,6 +36,7 @@ export function Week() {
       db.checklistLogs.where('night').between(from, to, true, true).toArray(),
       db.caffeineLogs.where('date').between(from, to, true, true).toArray(),
       db.suggestions.toArray(),
+      db.protocols.toArray(),
     ])
     const input: WeekInput = {
       sessions: alive(sessions),
@@ -44,11 +46,12 @@ export function Week() {
       checklist: alive(checklist),
       caffeine: alive(caffeine),
     }
-    return { input, dismissed: new Set(dismissed.map((d) => d.id)) }
+    return { input, dismissed: new Set(dismissed.map((d) => d.id)), versions }
   }, [from, to])
 
   if (!profile || !protocol || !data) return null
-  const summary = (ws: string) => summarizeWeek(ws, data.input, profile, protocol)
+  // each week is judged by the targets that applied then (versions saved when targets were edited)
+  const summary = (ws: string) => summarizeWeek(ws, data.input, profile, protocolForWeek(data.versions, ws) ?? protocol)
   const current = summary(selected)
   const trendWeeks = weekStartsBack(thisWeek, span).reverse()
   const trend = trendWeeks.map(summary)

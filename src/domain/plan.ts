@@ -1,4 +1,4 @@
-import { dateForWeekday, isoWeekday, weekDays } from './dates'
+import { addDaysKey, dateForWeekday, isoWeekday, weekDays } from './dates'
 import type { ActivityKey, ActivityType, IsoWeekday, PlannedSession, SessionLog, Slot, UsualWeekItem, WeeklyTarget } from './types'
 
 export type PlannedDraft = Omit<PlannedSession, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>
@@ -6,8 +6,22 @@ export type PlannedDraft = Omit<PlannedSession, 'id' | 'createdAt' | 'updatedAt'
 /** Build a week's planned sessions from the weekly targets. The rest target uses the profile's rest day. */
 export function generateWeek(weekStart: string, targets: WeeklyTarget[], restDay: IsoWeekday): PlannedDraft[] {
   const out: PlannedDraft[] = []
+  const busy = new Set<IsoWeekday>([restDay])
+  for (const t of targets) if (t.activityType !== 'rest') t.defaultDays.slice(0, t.timesPerWeek).forEach((d) => busy.add(d))
   for (const t of targets) {
     const days = t.activityType === 'rest' ? [restDay] : t.defaultDays.slice(0, t.timesPerWeek)
+    // a target raised above its default days: put the extra sessions on free days, then any other day but the rest day
+    const all = [1, 2, 3, 4, 5, 6, 7] as IsoWeekday[]
+    for (const pool of [all.filter((d) => !busy.has(d)), all.filter((d) => d !== restDay)]) {
+      for (const d of pool) {
+        if (t.activityType === 'rest' || days.length >= t.timesPerWeek) break
+        if (!days.includes(d)) {
+          days.push(d)
+          busy.add(d)
+        }
+      }
+    }
+    days.sort((a, b) => a - b)
     for (const wd of days) {
       out.push({ weekStart, date: dateForWeekday(weekStart, wd), activityType: t.activityType, slot: t.slot, origin: 'template' })
     }
@@ -65,7 +79,7 @@ export interface TargetProgress {
 /** Per-target progress for a week: done counts every done log of that type (planned or not). */
 export function targetProgress(targets: WeeklyTarget[], planned: PlannedSession[], logs: SessionLog[]): TargetProgress[] {
   return targets
-    .filter((t) => t.activityType !== 'rest')
+    .filter((t) => t.activityType !== 'rest' && t.timesPerWeek > 0)
     .map((t) => ({
       activityType: t.activityType,
       target: t.timesPerWeek,
@@ -106,3 +120,11 @@ export function intenseOnRestDay(restDate: string | undefined, logs: SessionLog[
 }
 
 export { isoWeekday }
+
+/** The protocol version that applied to a week: the latest saved on or before its last day (edits apply from the week they're made). */
+export function protocolForWeek<P extends { version: number; effectiveFrom: string }>(versions: P[], weekStart: string): P | undefined {
+  if (!versions.length) return undefined
+  const end = addDaysKey(weekStart, 6)
+  const sorted = [...versions].sort((a, b) => a.version - b.version)
+  return [...sorted].reverse().find((v) => v.effectiveFrom <= end) ?? sorted[0]
+}

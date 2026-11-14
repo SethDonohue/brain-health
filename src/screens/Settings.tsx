@@ -5,12 +5,12 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useRef, useState } from 'react'
 import { restoreBackup, type Backup } from '../db/backup'
 import { db } from '../db/db'
-import { alive, clearUsualWeek, movePlanned, removeCustomActivity, restoreCustomActivity, updateProfile } from '../db/repo'
+import { alive, clearUsualWeek, dropProtocolVersion, movePlanned, removeCustomActivity, restoreCustomActivity, saveWeeklyTargets, seedWeeklyTargets, updateProfile, type TargetEdit } from '../db/repo'
 import { getApiKey, ImportError, MODEL, setApiKey, testKey } from '../ai/extract'
-import { dateForWeekday, todayKey, weekdayLong, weekStartOf } from '../domain/dates'
+import { dateForWeekday, formatDuration, todayKey, weekdayLong, weekStartOf } from '../domain/dates'
 import { moveTab, normalizeTabOrder } from '../domain/sleep'
 import { DEFAULT_TAB_ORDER } from '../domain/types'
-import type { CustomActivityKey, IsoWeekday, Profile, TabKey, Units } from '../domain/types'
+import type { ActivityKey, CustomActivityKey, IsoWeekday, Profile, ProtocolVersion, TabKey, Units } from '../domain/types'
 import { useProfile, useProtocol } from '../hooks'
 import { useUi } from '../store'
 import { Button, Field, intensityColor, Segmented, Sheet, Stepper, Toggle } from '../ui/primitives'
@@ -63,6 +63,8 @@ export function SettingsSheet() {
       <Field label="Rest day">
         <RestDayPicker value={p.restDay} onChange={(wd) => void changeRestDay(wd)} />
       </Field>
+
+      <WeeklyTargets usualWeek={!!p.usualWeek?.length} />
 
       {!!p.usualWeek?.length && (
         <Field label="Usual week" hint="New weeks start from the usual week you saved on the Train tab. Clearing it goes back to the protocol's defaults.">
@@ -120,6 +122,90 @@ export function RestDayPicker({ value, onChange }: { value: IsoWeekday; onChange
         </button>
       ))}
     </div>
+  )
+}
+
+type Drafts = Partial<Record<ActivityKey, TargetEdit>>
+
+/** Times per week and usual session length for each activity with a target. Saved as a new protocol version. */
+function WeeklyTargets({ usualWeek }: { usualWeek: boolean }) {
+  const protocol = useProtocol()
+  if (!protocol) return null
+  return <WeeklyTargetsForm key={protocol.version} protocol={protocol} usualWeek={usualWeek} />
+}
+
+function WeeklyTargetsForm({ protocol, usualWeek }: { protocol: ProtocolVersion; usualWeek: boolean }) {
+  const toast = useUi((s) => s.showToast)
+  const targets = protocol.weeklyTargets.filter((t) => t.activityType !== 'rest')
+  const start: Drafts = Object.fromEntries(targets.map((t) => [t.activityType, { timesPerWeek: t.timesPerWeek, durationMin: t.durationMin, durationMax: t.durationMax }]))
+  const [draft, setDraft] = useState<Drafts>(start)
+  const defaults = seedWeeklyTargets()
+  const same = (a: Drafts, b: Drafts) => targets.every((t) => JSON.stringify(a[t.activityType]) === JSON.stringify(b[t.activityType]))
+  const set = (key: ActivityKey, patch: Partial<TargetEdit>) => setDraft({ ...draft, [key]: { ...draft[key]!, ...patch } })
+  const label = (key: ActivityKey) => protocol.activityTypes.find((a) => a.key === key)?.label ?? key
+  const save = async (next: Drafts, message: string) => {
+    const v = await saveWeeklyTargets(next)
+    toast({ message, action: { label: 'Undo', run: () => void dropProtocolVersion(v) } })
+  }
+  return (
+    <Field
+      label="Weekly targets"
+      hint={`How many times a week, and how long a usual session is. Applies from this week; past weeks keep their targets. This week's plan isn't changed.${usualWeek ? ' New weeks follow your saved usual week, so update it on the Train tab too.' : ''}`}
+    >
+      <ul className="divide-y divide-line rounded-xl border border-line">
+        {targets.map((t) => {
+          const d = draft[t.activityType]!
+          return (
+            <li key={t.activityType} className="px-3 py-3">
+              <div className="mb-2 font-medium">
+                {label(t.activityType)}
+                {d.timesPerWeek === 0 && <span className="font-normal text-ink-2"> (no target, tile hidden)</span>}
+              </div>
+              <Stepper label={`${label(t.activityType)} times per week`} value={d.timesPerWeek} step={1} min={0} max={7} onChange={(v) => set(t.activityType, { timesPerWeek: v })} format={(v) => `${v}× a week`} />
+              {d.timesPerWeek > 0 && (
+                <>
+                  <div className="mt-3 mb-1 text-sm text-ink-2">Shortest usual session</div>
+                  <Stepper
+                    label={`${label(t.activityType)} shortest session`}
+                    value={d.durationMin}
+                    step={15}
+                    min={15}
+                    max={300}
+                    onChange={(v) => set(t.activityType, { durationMin: v, durationMax: Math.max(v, d.durationMax) })}
+                    format={formatDuration}
+                  />
+                  <div className="mt-3 mb-1 text-sm text-ink-2">Longest usual session</div>
+                  <Stepper
+                    label={`${label(t.activityType)} longest session`}
+                    value={d.durationMax}
+                    step={15}
+                    min={15}
+                    max={300}
+                    onChange={(v) => set(t.activityType, { durationMax: v, durationMin: Math.min(v, d.durationMin) })}
+                    format={formatDuration}
+                  />
+                </>
+              )}
+            </li>
+          )
+        })}
+      </ul>
+      <div className="mt-3 flex flex-col gap-2">
+        {!same(draft, start) && (
+          <>
+            <Button onClick={() => void save(draft, 'Weekly targets saved')}>Save targets</Button>
+            <Button variant="outline" onClick={() => setDraft(start)}>
+              Cancel changes
+            </Button>
+          </>
+        )}
+        {same(draft, start) && !same(start, defaults) && (
+          <Button variant="outline" onClick={() => void save(defaults, 'Targets reset to the protocol')}>
+            Reset to protocol targets
+          </Button>
+        )}
+      </div>
+    </Field>
   )
 }
 

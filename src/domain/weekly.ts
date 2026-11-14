@@ -123,7 +123,7 @@ export function summarizeWeek(weekStart: string, input: WeekInput, profile: Prof
   const planned = input.planned.filter((p) => !p.deletedAt && p.weekStart === weekStart)
   const totals = weekTotals(sessions, protocol.activityTypes)
   const targets = protocol.weeklyTargets
-    .filter((t) => t.activityType !== 'rest')
+    .filter((t) => t.activityType !== 'rest' && t.timesPerWeek > 0)
     .map((t) => ({ activityType: t.activityType, target: t.timesPerWeek, done: sessions.filter((s) => s.status === 'done' && s.activityType === t.activityType).length }))
   const rest = planned.find((p) => p.activityType === 'rest')
   const restKept = rest ? (rest.date <= tonight ? !intenseOnRestDay(rest.date, sessions, protocol.activityTypes) : undefined) : undefined
@@ -237,8 +237,12 @@ export function suggestions(current: WeekSummary, history: WeekSummary[], input:
 
   // An activity target missed 2 weeks running.
   if (lastTwo.length === 2) {
-    for (const t of protocol.weeklyTargets.filter((x) => x.activityType !== 'rest')) {
-      const missed = lastTwo.every((w) => (w.targets.find((x) => x.activityType === t.activityType)?.done ?? 0) < t.timesPerWeek)
+    for (const t of protocol.weeklyTargets.filter((x) => x.activityType !== 'rest' && x.timesPerWeek > 0)) {
+      // judged against each week's own target (it may have been changed since)
+      const missed = lastTwo.every((w) => {
+        const x = w.targets.find((y) => y.activityType === t.activityType)
+        return !!x && x.done < x.target
+      })
       if (missed) {
         out.push({
           id: id(`missed_${t.activityType}`),

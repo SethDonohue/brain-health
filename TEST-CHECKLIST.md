@@ -1,6 +1,6 @@
 # Brain Health: phone test checklist
 
-Tick as you go. Items marked 📱 can only be checked on the real phone. Last updated for Build 9 (v0.6.0).
+Tick as you go. Items marked 📱 can only be checked on the real phone. Last updated for Build 10 (v0.7.0).
 
 ## 0. Install
 - [ ] APK installs over the old app and your data is still there
@@ -8,7 +8,17 @@ Tick as you go. Items marked 📱 can only be checked on the real phone. Last up
 - [ ] 📱 New brain icon on the home screen and in the app drawer
 - [ ] Settings → Import with Claude still shows your key (moved into the app's database, no need to paste it again)
 
-## New in Build 9: session times
+## New in Build 10: weekly targets
+- [ ] Settings → Weekly targets lists Pickleball, Strength and Mountain biking
+- [ ] Pickleball − to 3 → Save targets: Train and Today tiles show "of 3" straight away
+- [ ] Undo in the toast puts it back to 4
+- [ ] Change a session length: Today's hint for an untimed session shows the new range
+- [ ] Set Mountain biking to 0: its tile disappears; set it back
+- [ ] Reset to protocol targets brings back 4 / 2 / 1
+- [ ] Week tab: last week still shows "of 4" after lowering pickleball to 3 (past weeks keep their target)
+- [ ] This week's planned sessions don't change when you save; next week starts with the new count (unless you saved a usual week)
+
+## Build 9: session times
 - [ ] Train: imported pickleball bookings show a range, e.g. "Pickleball 3–5 PM"
 - [ ] Sessions on a day are in time order; untimed ones come after timed ones
 - [ ] Tap a session → Set time → pick start and length → Save time: chip updates; Undo in the toast restores it

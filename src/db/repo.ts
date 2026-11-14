@@ -419,6 +419,41 @@ export async function saveDietTargets(targets: Record<string, number>, d: BrainH
   return next.version
 }
 
+export interface TargetEdit {
+  timesPerWeek: number
+  durationMin: number
+  durationMax: number
+}
+
+/**
+ * Save new weekly activity targets (times per week and usual session length) as a new protocol version effective
+ * today, so this week and later use them and earlier weeks keep theirs. Returns the new version number (for undo).
+ */
+export async function saveWeeklyTargets(edits: Partial<Record<ActivityKey, TargetEdit>>, d: BrainHealthDB = db): Promise<number> {
+  const cur = await currentProtocol(d)
+  const next: ProtocolVersion = {
+    ...cur,
+    version: cur.version + 1,
+    effectiveFrom: toDateKey(Date.now()),
+    weeklyTargets: cur.weeklyTargets.map((t) => {
+      const e = edits[t.activityType]
+      if (!e || t.activityType === 'rest') return t
+      const lo = Math.min(e.durationMin, e.durationMax)
+      return { ...t, timesPerWeek: e.timesPerWeek, durationMin: lo, durationMax: Math.max(e.durationMin, e.durationMax) }
+    }),
+  }
+  await d.protocols.put(validateProtocol(next))
+  return next.version
+}
+
+/** The weekly targets as first seeded from the protocol document. */
+export const seedWeeklyTargets = (): Partial<Record<ActivityKey, TargetEdit>> =>
+  Object.fromEntries(
+    protocolV1.weeklyTargets
+      .filter((t) => t.activityType !== 'rest')
+      .map((t) => [t.activityType, { timesPerWeek: t.timesPerWeek, durationMin: t.durationMin, durationMax: t.durationMax }]),
+  )
+
 /** Undo a just-saved edit: drop that version so the previous one is current again. Never removes v1. */
 export async function dropProtocolVersion(version: number, d: BrainHealthDB = db) {
   if (version > 1) await d.protocols.delete(version)
