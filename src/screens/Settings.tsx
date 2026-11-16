@@ -258,7 +258,7 @@ function OwnActivities() {
   )
 }
 
-const TAB_NAMES: Record<TabKey, string> = { today: 'Today', sleep: 'Sleep', eat: 'Eat', train: 'Train', week: 'Week' }
+const TAB_NAMES: Record<TabKey, string> = { today: 'Home', sleep: 'Sleep', eat: 'Eat', train: 'Train', week: 'Week' }
 
 function TabOrder({ profile }: { profile: Profile }) {
   const order = normalizeTabOrder(profile.tabOrder)

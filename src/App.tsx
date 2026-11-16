@@ -13,7 +13,7 @@ import { QuickLogBar, Today } from './screens/Today'
 import { LogSessionSheet } from './sheets/LogSessionSheet'
 import { MoveSheet, RestPickSheet } from './sheets/MoveSheet'
 import { BedtimeSheet, DrinkEditSheet, DrinksSheet, SleepLogSheet } from './sheets/SleepSheets'
-import { AddSessionSheet, ExerciseHistorySheet, PlannedSheet } from './sheets/TrainSheets'
+import { AddSessionSheet, ExerciseDemoSheet, ExerciseHistorySheet, PlannedSheet } from './sheets/TrainSheets'
 import { EditMealsSheet, EditTargetsSheet, MindAboutSheet } from './sheets/EatSheets'
 import { ImportSheet } from './sheets/ImportSheet'
 import { useUi, type Tab } from './store'
@@ -22,7 +22,7 @@ import { autoBackupIfDue, shareFullBackup, shouldNudgeShare } from './db/autoBac
 import { updateProfile } from './db/repo'
 import { cx, ToastHost } from './ui/primitives'
 
-export const TAB_LABELS: Record<Tab, string> = { today: 'Today', sleep: 'Sleep', eat: 'Eat', train: 'Train', week: 'Week' }
+export const TAB_LABELS: Record<Tab, string> = { today: 'Home', sleep: 'Sleep', eat: 'Eat', train: 'Train', week: 'Week' }
 
 
 export default function App() {
@@ -155,6 +155,8 @@ export default function App() {
       {top?.kind === 'editMeals' && <EditMealsSheet />}
       {top?.kind === 'import' && <ImportSheet key={sheets.length} mode={top.mode} shared={top.shared} />}
       {player && <StrengthPlayer />}
+      {/* After the player, so a demo opened mid-workout shows on top of it. */}
+      {top?.kind === 'exerciseDemo' && <ExerciseDemoSheet key={sheets.length} exerciseKey={top.exerciseKey} variantKey={top.variantKey} />}
       <ToastHost />
     </div>
   )

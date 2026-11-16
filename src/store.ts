@@ -16,6 +16,7 @@ export type Sheet =
   | { kind: 'planned'; planned: PlannedSession }
   | { kind: 'addSession'; date: string }
   | { kind: 'exerciseHistory'; exerciseKey: string }
+  | { kind: 'exerciseDemo'; exerciseKey: string; variantKey?: string }
   | { kind: 'editTargets' }
   | { kind: 'mindAbout' }
   | { kind: 'editMeals' }

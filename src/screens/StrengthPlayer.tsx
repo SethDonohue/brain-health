@@ -9,6 +9,7 @@ import type { Exercise, Intensity, Profile, ProtocolVersion, SessionLog, SetLog 
 import { displayToKg, fmtWeight, weightStep, weightUnit } from '../domain/units'
 import { useProfile, useProtocol } from '../hooks'
 import { useUi } from '../store'
+import { InfoButton } from '../ui/ExerciseDemo'
 import { Button, cx, Field, IntensityPicker, Segmented, Stepper } from '../ui/primitives'
 
 interface Plan {
@@ -259,6 +260,7 @@ function ExerciseView({
   onValues: (i: number, v: SetPlan) => void
   onToggle: (i: number) => void
 }) {
+  const open = useUi((s) => s.open)
   const v = ex.variants.find((x) => x.key === plan.variant) ?? ex.variants[0]
   const u = profile.units
   const last = history[0]
@@ -271,7 +273,10 @@ function ExerciseView({
       <div className="text-sm text-ink-2">
         Exercise {index + 1}, {ex.name.toLowerCase()}
       </div>
-      <h1 className="font-display text-3xl font-semibold tracking-tight">{v.name}</h1>
+      <div className="flex items-center gap-1">
+        <h1 className="min-w-0 font-display text-3xl font-semibold tracking-tight">{v.name}</h1>
+        <InfoButton label={`How to do ${v.name}`} onClick={() => open({ kind: 'exerciseDemo', exerciseKey: ex.key, variantKey: v.key })} />
+      </div>
       {ex.variants.length > 1 && (
         <div className="mt-3">
           <Segmented label="Variation" value={plan.variant} onChange={onVariant} options={ex.variants.map((x) => ({ value: x.key, label: x.name }))} />

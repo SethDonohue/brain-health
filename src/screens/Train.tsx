@@ -12,6 +12,7 @@ import { fmtWeight, weightUnit } from '../domain/units'
 import { activityOf, useProfile, useProtocol, useToday, useWeek, type WeekData } from '../hooks'
 import { moveWithRestCheck } from '../sheets/MoveSheet'
 import { useUi } from '../store'
+import { InfoButton } from '../ui/ExerciseDemo'
 import { Button, cx, Segmented } from '../ui/primitives'
 
 export function Train() {
@@ -397,8 +398,9 @@ function Strength({ protocol, profile, week, today }: { protocol: ProtocolVersio
                   .sort((a, b) => b.h!.session.startAt - a.h!.session.startAt)[0]
               : undefined
             return (
-              <li key={ex.key}>
-                <button onClick={() => open({ kind: 'exerciseHistory', exerciseKey: ex.key })} className="flex min-h-14 w-full items-center justify-between gap-3 py-2 text-left">
+              <li key={ex.key} className="flex items-center">
+                <InfoButton label={`How to do ${ex.name}`} onClick={() => open({ kind: 'exerciseDemo', exerciseKey: ex.key })} />
+                <button onClick={() => open({ kind: 'exerciseHistory', exerciseKey: ex.key })} className="flex min-h-14 min-w-0 flex-1 items-center justify-between gap-3 py-2 text-left">
                   <span className="min-w-0">
                     <span className="block font-medium">{ex.name}</span>
                     <span className="block text-xs text-ink-3">

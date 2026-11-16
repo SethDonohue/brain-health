@@ -1,6 +1,6 @@
 # Brain Health: phone test checklist
 
-Tick as you go. Items marked 📱 can only be checked on the real phone. Last updated for Build 11 (v0.8.0).
+Tick as you go. Items marked 📱 can only be checked on the real phone. Last updated for Build 12 (v0.9.0).
 
 ## 0. Install
 - [ ] APK installs over the old app and your data is still there
@@ -8,12 +8,24 @@ Tick as you go. Items marked 📱 can only be checked on the real phone. Last up
 - [ ] 📱 New brain icon on the home screen and in the app drawer
 - [ ] Settings → Import with Claude still shows your key (moved into the app's database, no need to paste it again)
 
-## New in Build 11: home strength A/B and new targets
+## New in Build 12: Home tab and exercise demos
+- [ ] The first tab is now called Home (same screen as before); Settings → Tab order says Home too
+- [ ] Train → Strength list: each exercise has an ⓘ button on the left; tapping it opens the demo, tapping the row still opens history
+- [ ] Split squat ⓘ: a looping figure; Split squat / Bulgarian / Bulgarian + DB buttons switch the drawing (couch, dumbbells)
+- [ ] Decline push-up ⓘ: Push-up, Feet on couch and Loaded (backpack) all animate
+- [ ] Workout B → Squat ⓘ: Bodyweight and Goblet animate
+- [ ] Other exercises say the drawing is coming later
+- [ ] Tap the drawing: it pauses; tap again: it plays
+- [ ] 📱 "Watch video examples" opens YouTube (app or browser) with a search for that step; back returns to the app
+- [ ] In the workout player: the ⓘ next to the step name opens the demo on top of the workout; Close or the back button returns to the workout without losing sets
+- [ ] Exercise history popup: ⓘ next to each step name opens that step's demo; Close goes back to the history
+
+## Build 11: home strength A/B and new targets
 - [ ] Train → Strength shows Workout A / Workout B; A says "Up next" the first time
 - [ ] Workout A lists 8 exercises (split squat, chin-up, decline push-up, single-leg RDL, overhead press, hamstring curl, side plank, calf raise); B lists a different 8
 - [ ] Tap Workout B: the list changes; Start workout B opens the player with "Workout B, aim for 50–60 min" at the top
 - [ ] The Variation buttons switch steps (e.g. Split squat / Bulgarian / Bulgarian + DB); weighted steps show a weight box
-- [ ] Finish a workout A: next time the card says B is up next; Today's Start workout starts B
+- [ ] Finish a workout A: next time the card says B is up next; Home's Start workout starts B
 - [ ] After a bodyweight step where every set hit the top of the range, the next workout says "Ready for the next step?"
 - [ ] Old gym sets are still in history (they just aren't in the new list)
 - [ ] Settings → Weekly targets: Pickleball 3× a week, Strength 50 min–1 h, Mountain biking 1× a week with "Every 2 weeks" selected
@@ -80,7 +92,7 @@ Tick as you go. Items marked 📱 can only be checked on the real phone. Last up
 - [ ] 📱 Rest timer buzzes at zero
 - [ ] Finish workout shows the summary
 
-## 4. Today
+## 4. Home
 - [ ] Commute leg button logs a ride; Undo and "Hard ride" in the toast work
 - [ ] Log activity: custom activity (e.g. hike) can be created and logged
 - [ ] Weekly exercise and cardio tiles update

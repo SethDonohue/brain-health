@@ -3,6 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useState } from 'react'
 import { db } from '../db/db'
 import { addPlanned, alive, removePlanned, resetPlanned, setPlannedTime, skipPlanned, startStrength } from '../db/repo'
+import { DEMOS, videoUrl } from '../domain/demos'
 import { formatDuration, formatTimeRange, fromDateKey, weekStartOf } from '../domain/dates'
 import { plannedStatus } from '../domain/plan'
 import { historyFor, targetLabel } from '../domain/strength'
@@ -10,7 +11,8 @@ import type { ActivityKey, PlannedSession } from '../domain/types'
 import { fmtWeight, weightUnit } from '../domain/units'
 import { activityOf, targetOf, useProfile, useProtocol } from '../hooks'
 import { useUi } from '../store'
-import { Button, Sheet } from '../ui/primitives'
+import { ExerciseDemo, InfoButton } from '../ui/ExerciseDemo'
+import { Button, Segmented, Sheet } from '../ui/primitives'
 
 const LENGTHS = [30, 45, 60, 90, 120, 150, 180]
 
@@ -226,6 +228,7 @@ export function ExerciseHistorySheet({ exerciseKey }: { exerciseKey: string }) {
     const [sets, sessions] = await Promise.all([db.setLogs.where('exerciseKey').equals(exerciseKey).toArray(), db.sessionLogs.where('activityType').equals('strength').toArray()])
     return { sets: alive(sets), sessions: alive(sessions) }
   }, [exerciseKey])
+  const open = useUi((s) => s.open)
   const ex = protocol?.workout.exercises.find((e) => e.key === exerciseKey)
   if (!protocol || !profile || !data || !ex) return null
   const u = profile.units
@@ -237,9 +240,12 @@ export function ExerciseHistorySheet({ exerciseKey }: { exerciseKey: string }) {
         const best = v.weighted ? Math.max(0, ...h.flatMap((x) => x.sets.map((s) => s.weightKg ?? 0))) : 0
         return (
           <section key={v.key} className="mb-6">
-            <div className="mb-2 flex items-baseline justify-between">
-              <h3 className="font-medium">{v.name}</h3>
-              <span className="text-sm text-ink-2">
+            <div className="mb-1 flex items-center justify-between gap-2">
+              <span className="flex min-w-0 items-center">
+                <h3 className="font-medium">{v.name}</h3>
+                <InfoButton label={`How to do ${v.name}`} onClick={() => open({ kind: 'exerciseDemo', exerciseKey: ex.key, variantKey: v.key })} />
+              </span>
+              <span className="text-right text-sm text-ink-2">
                 {targetLabel(ex, v)}
                 {best > 0 && `, best ${fmtWeight(best, u)} ${weightUnit(u)}`}
               </span>
@@ -266,6 +272,40 @@ export function ExerciseHistorySheet({ exerciseKey }: { exerciseKey: string }) {
           </section>
         )
       })}
+    </Sheet>
+  )
+}
+
+/** How to do an exercise: a drawn demo of each step (where there is one), the cue, and a link to example videos. */
+export function ExerciseDemoSheet({ exerciseKey, variantKey }: { exerciseKey: string; variantKey?: string }) {
+  const protocol = useProtocol()
+  const ex = protocol?.workout.exercises.find((e) => e.key === exerciseKey)
+  const [picked, setPicked] = useState(variantKey)
+  if (!ex) return null
+  const v = ex.variants.find((x) => x.key === picked) ?? ex.variants[0]
+  const demo = DEMOS[v.key]
+  return (
+    <Sheet title={ex.name}>
+      {ex.variants.length > 1 && (
+        <div className="mb-3">
+          <Segmented label="Step" value={v.key} onChange={setPicked} options={ex.variants.map((x) => ({ value: x.key, label: x.name }))} />
+        </div>
+      )}
+      {demo ? (
+        <ExerciseDemo key={v.key} demo={demo} label={v.name} />
+      ) : (
+        <p className="rounded-xl bg-sunk px-4 py-3 text-sm text-ink-2">A drawing of this one is coming in a later build. The video link below shows it now.</p>
+      )}
+      <p className="mt-3 text-sm text-ink-2">{ex.cue}</p>
+      <a
+        href={videoUrl(ex, v)}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-4 flex min-h-12 w-full items-center justify-center rounded-xl border border-line px-4 font-medium active:bg-sunk"
+      >
+        Watch video examples
+      </a>
+      <p className="mt-2 mb-2 text-center text-xs text-ink-3">Opens a YouTube search in your browser. Needs internet.</p>
     </Sheet>
   )
 }

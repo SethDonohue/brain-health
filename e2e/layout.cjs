@@ -25,11 +25,11 @@ const SCALES = process.env.SCALES ? process.env.SCALES.split(',').map(Number) : 
 const SCHEMES = QUICK ? ['light'] : ['light', 'dark']
 const INSETS = { top: 32, bottom: 48 }
 
-const TABS = ['Today', 'Sleep', 'Eat', 'Train', 'Week']
+const TABS = ['Home', 'Sleep', 'Eat', 'Train', 'Week']
 // [tab, button name regex, label]. Missing triggers are reported, not fatal.
 const SHEETS = [
-  ['Today', /^Log activity$/, 'log-activity'],
-  ['Today', /^Settings$/, 'settings'],
+  ['Home', /^Log activity$/, 'log-activity'],
+  ['Home', /^Settings$/, 'settings'],
   ['Sleep', /^Bedtime/, 'bedtime'],
   ['Sleep', /Edit drinks and amounts/, 'drinks'],
   ['Eat', /^Edit my targets$/, 'edit-targets'],
@@ -38,6 +38,9 @@ const SHEETS = [
   ['Train', /^Add a session on/, 'add-session'],
   ['Train', /^Import/, 'import'],
   ['Train', /^Pickleball, 5–7 PM/, 'planned-timed'],
+  ['Train', /^How to do Split squat$/, 'exercise-demo'],
+  ['Train', /^How to do Chin-up$/, 'exercise-demo-no-drawing'],
+  ['Train', /^Split squat 3 ×/, 'exercise-history'],
 ]
 
 const findings = []
@@ -200,7 +203,7 @@ async function seed(p) {
     await p.waitForTimeout(350) // let the sheet open
   }
   await p.waitForTimeout(300)
-  await goTab(p, 'Today')
+  await goTab(p, 'Home')
 }
 
 async function goTab(p, name) {

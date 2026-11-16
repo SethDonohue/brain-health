@@ -4,12 +4,12 @@ A personal Android app for following a brain-health protocol: exercise, sleep ha
 
 Single user, offline-first, no account. Everything is stored on the phone.
 
-> **Status:** Milestone 1 (M1) in progress. Current build: v0.8.0 (versionCode 11).
+> **Status:** Milestone 1 (M1) in progress. Current build: v0.9.0 (versionCode 12).
 > This is a personal project, not a medical device or medical advice.
 
 ## Features
 
-**Today**
+**Home**
 - Weekly total exercise and weekly cardio at a glance (cardio counts vigorous minutes double; floor 150, target 300 moderate-equivalent minutes)
 - Today's planned sessions, with booked times (for example 3–5 PM)
 - One-tap bike commute logging and a full "Log activity" form with intensity
@@ -33,6 +33,7 @@ Single user, offline-first, no account. Everything is stored on the phone.
 - Home strength plan: two full-body workouts, A (heavier) and B (lighter), with no exercise in common; Start picks the next one and you can switch
 - Each exercise has steps from easy to hard (e.g. split squat → Bulgarian → with dumbbells); the player suggests the next step or a heavier weight when every set hits the top of the range
 - Strength player with per-set logging, weight carry-down and a rest timer
+- Info button (ⓘ) on every exercise: an original animated stick-figure demo of each step (split squat, push-up and squat steps so far) and a "Watch video examples" link that opens a YouTube search (needs internet)
 - Import bookings (for example, a court-booking screenshot) or a strength workout (see AI import)
 
 **Week**
@@ -76,7 +77,7 @@ src/
   domain/      Pure logic: protocol seed (protocol.v1.ts), dates, cardio, MIND scoring, plans, strength, units
   db/          Dexie schema (db.ts), data operations (repo.ts), backups and automatic backups
   ai/          Claude import: request, parsing and validation, share-sheet bridge
-  screens/     Today, Sleep, Eat, Train, Week, Settings, strength player, onboarding
+  screens/     Home (Today.tsx), Sleep, Eat, Train, Week, Settings, strength player, onboarding
   sheets/      Bottom sheets: logging, moving sessions, sleep, eat, train, import
   ui/          Shared components (Sheet, Button, Stepper, Segmented, Toggle, toasts)
 android/       Capacitor Android project (ShareInPlugin.java receives shared items)
