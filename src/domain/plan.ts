@@ -1,11 +1,19 @@
-import { addDaysKey, dateForWeekday, isoWeekday, weekDays } from './dates'
+import { addDaysKey, dateForWeekday, isoWeekday, weekDays, weeksBetween } from './dates'
 import type { ActivityKey, ActivityType, IsoWeekday, PlannedSession, SessionLog, Slot, UsualWeekItem, WeeklyTarget } from './types'
 
 export type PlannedDraft = Omit<PlannedSession, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>
 
+/** How many times a target asks for in a given week: 0 on the "off" weeks of an every-other-week target. */
+export function timesThisWeek(t: Pick<WeeklyTarget, 'timesPerWeek' | 'everyWeeks' | 'anchorWeek'>, weekStart: string): number {
+  const every = t.everyWeeks ?? 1
+  if (every <= 1 || !t.anchorWeek) return t.timesPerWeek
+  return ((weeksBetween(t.anchorWeek, weekStart) % every) + every) % every === 0 ? t.timesPerWeek : 0
+}
+
 /** Build a week's planned sessions from the weekly targets. The rest target uses the profile's rest day. */
-export function generateWeek(weekStart: string, targets: WeeklyTarget[], restDay: IsoWeekday): PlannedDraft[] {
+export function generateWeek(weekStart: string, allTargets: WeeklyTarget[], restDay: IsoWeekday): PlannedDraft[] {
   const out: PlannedDraft[] = []
+  const targets = allTargets.map((t) => ({ ...t, timesPerWeek: timesThisWeek(t, weekStart) }))
   const busy = new Set<IsoWeekday>([restDay])
   for (const t of targets) if (t.activityType !== 'rest') t.defaultDays.slice(0, t.timesPerWeek).forEach((d) => busy.add(d))
   for (const t of targets) {
@@ -29,9 +37,10 @@ export function generateWeek(weekStart: string, targets: WeeklyTarget[], restDay
   return out
 }
 
-/** Build a week from the user's saved usual week. */
-export function weekFromUsual(weekStart: string, items: UsualWeekItem[]): PlannedDraft[] {
-  return items.map((i) => ({
+/** Build a week from the user's saved usual week. Activities on an every-other-week target are left out on their off weeks. */
+export function weekFromUsual(weekStart: string, items: UsualWeekItem[], targets: WeeklyTarget[] = []): PlannedDraft[] {
+  const off = new Set(targets.filter((t) => (t.everyWeeks ?? 1) > 1 && timesThisWeek(t, weekStart) === 0).map((t) => t.activityType))
+  return items.filter((i) => !off.has(i.activityType)).map((i) => ({
     weekStart,
     date: dateForWeekday(weekStart, i.weekday),
     activityType: i.activityType,
@@ -76,13 +85,13 @@ export interface TargetProgress {
   planned: number
 }
 
-/** Per-target progress for a week: done counts every done log of that type (planned or not). */
-export function targetProgress(targets: WeeklyTarget[], planned: PlannedSession[], logs: SessionLog[]): TargetProgress[] {
+/** Per-target progress for a week: done counts every done log of that type (planned or not). Off weeks are left out. */
+export function targetProgress(targets: WeeklyTarget[], weekStart: string, planned: PlannedSession[], logs: SessionLog[]): TargetProgress[] {
   return targets
-    .filter((t) => t.activityType !== 'rest' && t.timesPerWeek > 0)
+    .filter((t) => t.activityType !== 'rest' && timesThisWeek(t, weekStart) > 0)
     .map((t) => ({
       activityType: t.activityType,
-      target: t.timesPerWeek,
+      target: timesThisWeek(t, weekStart),
       done: logs.filter((l) => !l.deletedAt && l.activityType === t.activityType && l.status === 'done').length,
       planned: planned.filter((p) => !p.deletedAt && p.activityType === t.activityType).length,
     }))

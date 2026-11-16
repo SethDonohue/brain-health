@@ -1,7 +1,7 @@
 import { weekTotals, type WeekTotals } from './cardio'
 import { addDaysKey, weekDays } from './dates'
 import { bandPoints, MIND_BANDS } from './mind'
-import { intenseOnRestDay } from './plan'
+import { intenseOnRestDay, timesThisWeek } from './plan'
 import { currentNight, nightFlags } from './sleep'
 import type {
   ActivityKey,
@@ -123,8 +123,8 @@ export function summarizeWeek(weekStart: string, input: WeekInput, profile: Prof
   const planned = input.planned.filter((p) => !p.deletedAt && p.weekStart === weekStart)
   const totals = weekTotals(sessions, protocol.activityTypes)
   const targets = protocol.weeklyTargets
-    .filter((t) => t.activityType !== 'rest' && t.timesPerWeek > 0)
-    .map((t) => ({ activityType: t.activityType, target: t.timesPerWeek, done: sessions.filter((s) => s.status === 'done' && s.activityType === t.activityType).length }))
+    .filter((t) => t.activityType !== 'rest' && timesThisWeek(t, weekStart) > 0)
+    .map((t) => ({ activityType: t.activityType, target: timesThisWeek(t, weekStart), done: sessions.filter((s) => s.status === 'done' && s.activityType === t.activityType).length }))
   const rest = planned.find((p) => p.activityType === 'rest')
   const restKept = rest ? (rest.date <= tonight ? !intenseOnRestDay(rest.date, sessions, protocol.activityTypes) : undefined) : undefined
 

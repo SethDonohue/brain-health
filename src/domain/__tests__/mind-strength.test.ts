@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { groupProgress, limitStatus, targetText } from '../mind'
-import { hitTop, historyFor, prefill, targetLabel } from '../strength'
+import { exercisesForDay, hitTop, historyFor, nextDay, nextStep, prefill, targetLabel } from '../strength'
 import { protocolV1 } from '../protocol.v1'
-import type { ServingLog, SessionLog, SetLog } from '../types'
+import type { Exercise, ServingLog, SessionLog, SetLog } from '../types'
 import { KG_PER_LB } from '../units'
 
 const g = (k: string) => protocolV1.dietGroups.find((x) => x.key === k)!
@@ -32,8 +32,20 @@ describe('MIND progress', () => {
   })
 })
 
+// a gym exercise like the first seed (still the shape of imported workouts)
+const legs: Exercise = {
+  key: 'legs',
+  name: 'Legs',
+  targetSets: 3,
+  variants: [
+    { key: 'leg_press', name: 'Leg press', target: { kind: 'reps', min: 8, max: 12 }, weighted: true },
+    { key: 'squat', name: 'Squat', target: { kind: 'reps', min: 8, max: 12 }, weighted: true },
+  ],
+  cue: '',
+  muscleGroups: ['quads'],
+}
+
 describe('strength', () => {
-  const legs = protocolV1.workout.exercises[0]
   const press = legs.variants[0]
   const sess = (id: string, startAt: number): SessionLog => ({ id, createdAt: 0, updatedAt: 0, date: '2026-11-03', activityType: 'strength', startAt, durationMin: 50, intensity: 'moderate', status: 'done', protocolVersion: 1 })
   const set = (sessionId: string, i: number, kg: number, reps: number): SetLog => ({ id: `${sessionId}${i}`, createdAt: 0, updatedAt: 0, sessionId, exerciseKey: 'legs', variant: 'leg_press', setIndex: i, weightKg: kg, reps })
@@ -54,8 +66,50 @@ describe('strength', () => {
   })
   it('labels targets', () => {
     expect(targetLabel(legs, press)).toBe('3 × 8–12')
-    const core = protocolV1.workout.exercises[4]
-    expect(targetLabel(core, core.variants[0])).toBe('3 × 45–60 s')
+    const plank = protocolV1.workout.exercises.find((e) => e.key === 'b_plank')!
+    expect(targetLabel(plank, plank.variants[0])).toBe('2 × 30–60 s')
+  })
+})
+
+describe('home A/B workouts', () => {
+  const w = protocolV1.workout
+  const A = exercisesForDay(w, 'A')
+  const B = exercisesForDay(w, 'B')
+  it('splits into two full-body workouts with no exercise in common', () => {
+    expect(A).toHaveLength(8)
+    expect(B).toHaveLength(8)
+    const variantKeys = (xs: Exercise[]) => new Set(xs.flatMap((e) => e.variants.map((v) => v.key)))
+    const a = variantKeys(A)
+    expect([...variantKeys(B)].filter((k) => a.has(k))).toEqual([])
+    expect(new Set(w.exercises.map((e) => e.key)).size).toBe(16)
+    for (const day of [A, B]) {
+      const groups = new Set(day.flatMap((e) => e.muscleGroups))
+      for (const g of ['quads', 'glutes', 'hamstrings', 'back', 'chest', 'shoulders', 'core']) expect(groups).toContain(g)
+    }
+  })
+  it('shows untagged (imported) exercises in every workout, and everything when there are no days', () => {
+    const imported = { ...legs }
+    const withImport = { ...w, exercises: [...w.exercises, imported] }
+    expect(exercisesForDay(withImport, 'A')).toContain(imported)
+    expect(exercisesForDay(withImport, 'B')).toContain(imported)
+    expect(exercisesForDay({ ...w, days: undefined }, 'A')).toHaveLength(16)
+  })
+  it('alternates A and B from the last finished workout', () => {
+    const s = (startAt: number, workoutDay?: string, status: SessionLog['status'] = 'done'): SessionLog => ({ id: String(startAt), createdAt: 0, updatedAt: 0, date: '2026-11-17', activityType: 'strength', startAt, durationMin: 55, intensity: 'moderate', status, protocolVersion: 2, workoutDay })
+    expect(nextDay(w, [])).toBe('A')
+    expect(nextDay(w, [s(1, 'A')])).toBe('B')
+    expect(nextDay(w, [s(1, 'A'), s(2, 'B')])).toBe('A')
+    expect(nextDay(w, [s(1, 'A'), s(2, 'B', 'active')])).toBe('B') // unfinished doesn't count
+    expect(nextDay(w, [s(1, 'B'), s(2)])).toBe('A') // gym sessions before the update are skipped
+    expect(nextDay({ ...w, days: undefined }, [])).toBeUndefined()
+  })
+  it('suggests the next bodyweight step after topping out', () => {
+    const ex = A.find((e) => e.key === 'a_split_squat')!
+    const v = ex.variants[0]
+    const done = (reps: number[]) => [{ session: { id: 's' } as SessionLog, sets: reps.map((r, i) => ({ id: String(i), createdAt: 0, updatedAt: 0, sessionId: 's', exerciseKey: ex.key, variant: v.key, setIndex: i, reps: r })) }]
+    expect(nextStep(ex, v, done([12, 12, 12]))!.key).toBe('bulgarian')
+    expect(nextStep(ex, v, done([12, 12, 10]))).toBeUndefined()
+    expect(nextStep(ex, ex.variants[2], done([10, 10, 10]))).toBeUndefined() // weighted: the weight goes up instead
   })
 })
 

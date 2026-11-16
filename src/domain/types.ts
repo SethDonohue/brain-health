@@ -45,6 +45,8 @@ export interface Profile {
   usualWeek?: UsualWeekItem[]
   /** keys of meals added to the user's usual meals by an app update, so a deleted one isn't added back */
   seededMeals?: string[]
+  /** one-time protocol changes already applied by app updates (e.g. 'home_strength_ab') */
+  appliedUpdates?: string[]
   /** automatic daily backups; on unless turned off */
   autoBackup?: boolean
   lastAutoBackupAt?: number
@@ -84,6 +86,10 @@ export interface WeeklyTarget {
   defaultDays: IsoWeekday[]
   slot: Slot
   note: string
+  /** 2 = every other week (e.g. MTB in the rainy season); missing or 1 = every week */
+  everyWeeks?: number
+  /** a Monday ('yyyy-MM-dd') that is an "on" week when everyWeeks is 2 */
+  anchorWeek?: string
 }
 
 export type ExerciseTarget =
@@ -105,6 +111,15 @@ export interface Exercise {
   variants: ExerciseVariant[]
   cue: string
   muscleGroups: string[]
+  /** which workout (A, B…) this belongs to; missing = every workout (imported exercises) */
+  day?: string
+}
+
+/** One of the alternating strength workouts, e.g. A (heavier) and B (lighter). */
+export interface WorkoutDay {
+  key: string
+  name: string
+  note: string
 }
 
 export type DietKind = 'do' | 'limit'
@@ -155,7 +170,7 @@ export interface ProtocolVersion {
   effectiveFrom: string
   activityTypes: ActivityType[]
   weeklyTargets: WeeklyTarget[]
-  workout: { exercises: Exercise[]; sessionTargetMin: [number, number] }
+  workout: { exercises: Exercise[]; sessionTargetMin: [number, number]; days?: WorkoutDay[] }
   sleepRules: SleepRules
   dietGroups: DietGroup[]
   mealTemplates: MealTemplate[]
@@ -207,6 +222,8 @@ export interface SessionLog extends BaseRecord {
   status: SessionStatus
   note?: string
   protocolVersion: number
+  /** strength only: which workout (A, B…) was done */
+  workoutDay?: string
 }
 
 export interface SetLog extends BaseRecord {

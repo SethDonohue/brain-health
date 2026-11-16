@@ -36,7 +36,7 @@ describe('repeat last week and usual week', () => {
     const after = await week(d, '2026-11-09')
     expect(after.some((p) => p.id === pb.id)).toBe(true) // done session kept
     expect(after.find((p) => p.activityType === 'mtb' && p.id !== mtb.id)?.date).toBe('2026-11-15') // moved day carried over
-    expect(after.length).toBe(9) // 7 open sessions replaced by 8 copies, plus the kept done one
+    expect(after.length).toBe(8) // 5 open sessions (an MTB off week) replaced by 7 copies, plus the kept done one
 
     await undoPlanChange(change, d)
     const undone = await week(d, '2026-11-09')
@@ -50,12 +50,16 @@ describe('repeat last week and usual week', () => {
     await ensureWeek('2026-11-02', d)
     const mtb = (await week(d, '2026-11-02')).find((p) => p.activityType === 'mtb')!
     await movePlanned(mtb.id, '2026-11-04', d)
-    expect(await saveUsualWeek('2026-11-02', d)).toBe(8)
+    expect(await saveUsualWeek('2026-11-02', d)).toBe(7)
     expect((await getProfile(d)).usualWeek?.find((u) => u.activityType === 'mtb')?.weekday).toBe(3)
     await ensureWeek('2026-11-16', d)
     expect((await week(d, '2026-11-16')).find((p) => p.activityType === 'mtb')?.date).toBe('2026-11-18')
+    // every-other-week MTB stays out of the usual week on its off weeks
+    await ensureWeek('2026-11-23', d)
+    expect((await week(d, '2026-11-23')).some((p) => p.activityType === 'mtb')).toBe(false)
+    expect((await week(d, '2026-11-23')).length).toBe(6)
     const ch = await resetWeekToUsual('2026-11-02', d)
-    expect(ch.added.length).toBe(8)
+    expect(ch.added.length).toBe(7)
   })
 })
 

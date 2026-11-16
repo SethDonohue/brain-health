@@ -1,6 +1,6 @@
 # Brain Health: phone test checklist
 
-Tick as you go. Items marked 📱 can only be checked on the real phone. Last updated for Build 10 (v0.7.0).
+Tick as you go. Items marked 📱 can only be checked on the real phone. Last updated for Build 11 (v0.8.0).
 
 ## 0. Install
 - [ ] APK installs over the old app and your data is still there
@@ -8,7 +8,19 @@ Tick as you go. Items marked 📱 can only be checked on the real phone. Last up
 - [ ] 📱 New brain icon on the home screen and in the app drawer
 - [ ] Settings → Import with Claude still shows your key (moved into the app's database, no need to paste it again)
 
-## New in Build 10: weekly targets
+## New in Build 11: home strength A/B and new targets
+- [ ] Train → Strength shows Workout A / Workout B; A says "Up next" the first time
+- [ ] Workout A lists 8 exercises (split squat, chin-up, decline push-up, single-leg RDL, overhead press, hamstring curl, side plank, calf raise); B lists a different 8
+- [ ] Tap Workout B: the list changes; Start workout B opens the player with "Workout B, aim for 50–60 min" at the top
+- [ ] The Variation buttons switch steps (e.g. Split squat / Bulgarian / Bulgarian + DB); weighted steps show a weight box
+- [ ] Finish a workout A: next time the card says B is up next; Today's Start workout starts B
+- [ ] After a bodyweight step where every set hit the top of the range, the next workout says "Ready for the next step?"
+- [ ] Old gym sets are still in history (they just aren't in the new list)
+- [ ] Settings → Weekly targets: Pickleball 3× a week, Strength 50 min–1 h, Mountain biking 1× a week with "Every 2 weeks" selected
+- [ ] Next week's plan: pickleball Mon, Wed, Thu (unless you saved a usual week); MTB shows every other week, and the MTB tile is hidden on off weeks
+- [ ] If you saved a usual week: re-save it after arranging a week the new way
+
+## Build 10: weekly targets
 - [ ] Settings → Weekly targets lists Pickleball, Strength and Mountain biking
 - [ ] Pickleball − to 3 → Save targets: Train and Today tiles show "of 3" straight away
 - [ ] Undo in the toast puts it back to 4

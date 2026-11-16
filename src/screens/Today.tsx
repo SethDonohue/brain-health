@@ -122,7 +122,7 @@ function Legend({ color, label, value, marker }: { color: string; label: string;
 }
 
 function ExerciseTotal({ totals, last, week, protocol }: { totals: WeekTotals; last: WeekTotals; week: WeekData; protocol: ProtocolVersion }) {
-  const progress = targetProgress(protocol.weeklyTargets, week.planned, week.logs)
+  const progress = targetProgress(protocol.weeklyTargets, week.weekStart, week.planned, week.logs)
   const commutes = totals.sessionsByType.bike_commute ?? 0
   const own = protocol.activityTypes.filter((a) => a.custom && (totals.sessionsByType[a.key] ?? 0) > 0)
   return (

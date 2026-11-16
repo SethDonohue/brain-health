@@ -2,6 +2,7 @@ import { ulid } from 'ulid'
 import { addDaysKey, toDateKey, weekStartOf } from '../domain/dates'
 import { generateWeek, slotOf, usualFromWeek, weekFromUsual } from '../domain/plan'
 import { protocolV1, validateProtocol } from '../domain/protocol.v1'
+import { nextDay } from '../domain/strength'
 import { DEFAULT_TAB_ORDER } from '../domain/types'
 import type {
   ActivityKey,
@@ -21,6 +22,7 @@ import type {
   SessionLog,
   SleepLog,
   Slot,
+  WeeklyTarget,
 } from '../domain/types'
 import { db, type BrainHealthDB } from './db'
 
@@ -48,6 +50,8 @@ export const defaultProfile = (): Profile => ({
   noticeAcknowledged: false,
   onboarded: false,
   tabOrder: [...DEFAULT_TAB_ORDER],
+  // a new phone starts from the current seed, so past app updates don't apply
+  appliedUpdates: ['home_strength_ab'],
   updatedAt: now(),
 })
 
@@ -63,6 +67,35 @@ export async function ensureSeed(d: BrainHealthDB = db): Promise<void> {
     }
   })
   await addNewSeedMeals(d)
+  await applyAppUpdates(d)
+}
+
+/**
+ * Changes an app update makes once to this phone's saved protocol, as a new version (earlier weeks keep theirs).
+ * "home_strength_ab" (v0.8.0): the home A/B strength workouts, 50–60 min sessions, pickleball 3 a week on
+ * Mon/Wed/Thu, and mountain biking every other week starting this week.
+ */
+async function applyAppUpdates(d: BrainHealthDB) {
+  const profile = await getProfile(d)
+  const done = new Set(profile.appliedUpdates ?? [])
+  if (done.has('home_strength_ab')) return
+  const cur = await currentProtocol(d)
+  const seed = (key: ActivityKey) => protocolV1.weeklyTargets.find((t) => t.activityType === key)!
+  const thisWeek = weekStartOf(toDateKey(Date.now()))
+  const next: ProtocolVersion = {
+    ...cur,
+    version: cur.version + 1,
+    effectiveFrom: toDateKey(Date.now()),
+    workout: structuredClone(protocolV1.workout),
+    weeklyTargets: cur.weeklyTargets.map((t) => {
+      if (t.activityType === 'pickleball') return { ...t, timesPerWeek: 3, defaultDays: seed('pickleball').defaultDays }
+      if (t.activityType === 'strength') return { ...t, durationMin: 50, durationMax: 60, note: seed('strength').note }
+      if (t.activityType === 'mtb') return { ...withEvery(t, 2, thisWeek), anchorWeek: thisWeek, note: seed('mtb').note }
+      return t
+    }),
+  }
+  await d.protocols.put(validateProtocol(next))
+  await updateProfile({ appliedUpdates: [...done, 'home_strength_ab'] }, d)
 }
 
 /** Meals the protocol seed gained since this phone's protocol was made, added once; deleting one keeps it deleted. */
@@ -100,7 +133,7 @@ export async function ensureWeek(dateKey: string, d: BrainHealthDB = db): Promis
     const existing = await d.plannedSessions.where('weekStart').equals(weekStart).count()
     if (existing > 0) return
     const [protocol, profile] = await Promise.all([currentProtocol(d), getProfile(d)])
-    const drafts = profile.usualWeek?.length ? weekFromUsual(weekStart, profile.usualWeek) : generateWeek(weekStart, protocol.weeklyTargets, profile.restDay)
+    const drafts = profile.usualWeek?.length ? weekFromUsual(weekStart, profile.usualWeek, protocol.weeklyTargets) : generateWeek(weekStart, protocol.weeklyTargets, profile.restDay)
     await d.plannedSessions.bulkAdd(drafts.map((x) => ({ ...newRecord(), ...x })))
   })
   return weekStart
@@ -167,6 +200,7 @@ export interface LogSessionInput {
   rpe?: number
   note?: string
   status?: SessionLog['status']
+  workoutDay?: string
 }
 
 export async function logSession(input: LogSessionInput, d: BrainHealthDB = db): Promise<string> {
@@ -364,11 +398,13 @@ export async function activeStrength(d: BrainHealthDB = db): Promise<SessionLog 
   return rows.sort((a, b) => b.startAt - a.startAt)[0]
 }
 
-export async function startStrength(plannedSessionId?: string, d: BrainHealthDB = db): Promise<string> {
+/** Start (or resume) a strength workout. Without a day, the next workout in the A/B rotation is used. */
+export async function startStrength(plannedSessionId?: string, day?: string, d: BrainHealthDB = db): Promise<string> {
   const open = await activeStrength(d)
   if (open) return open.id
   const t = now()
-  return logSession({ date: toDateKey(t), activityType: 'strength', startAt: t, durationMin: 0, intensity: 'moderate', plannedSessionId, status: 'active' }, d)
+  const workoutDay = day ?? nextDay((await currentProtocol(d)).workout, alive(await d.sessionLogs.where('activityType').equals('strength').toArray()))
+  return logSession({ date: toDateKey(t), activityType: 'strength', startAt: t, durationMin: 0, intensity: 'moderate', plannedSessionId, status: 'active', workoutDay }, d)
 }
 
 export async function saveSet(
@@ -423,6 +459,8 @@ export interface TargetEdit {
   timesPerWeek: number
   durationMin: number
   durationMax: number
+  /** 1 = every week, 2 = every other week */
+  everyWeeks?: number
 }
 
 /**
@@ -431,6 +469,7 @@ export interface TargetEdit {
  */
 export async function saveWeeklyTargets(edits: Partial<Record<ActivityKey, TargetEdit>>, d: BrainHealthDB = db): Promise<number> {
   const cur = await currentProtocol(d)
+  const thisWeek = weekStartOf(toDateKey(Date.now()))
   const next: ProtocolVersion = {
     ...cur,
     version: cur.version + 1,
@@ -439,20 +478,32 @@ export async function saveWeeklyTargets(edits: Partial<Record<ActivityKey, Targe
       const e = edits[t.activityType]
       if (!e || t.activityType === 'rest') return t
       const lo = Math.min(e.durationMin, e.durationMax)
-      return { ...t, timesPerWeek: e.timesPerWeek, durationMin: lo, durationMax: Math.max(e.durationMin, e.durationMax) }
+      const next = { ...t, timesPerWeek: e.timesPerWeek, durationMin: lo, durationMax: Math.max(e.durationMin, e.durationMax) }
+      return withEvery(next, e.everyWeeks ?? t.everyWeeks ?? 1, thisWeek)
     }),
   }
   await d.protocols.put(validateProtocol(next))
   return next.version
 }
 
+/**
+ * Set a target to every week or every other week. Switching on every-other-week makes this week an "on" week;
+ * an existing schedule keeps its weeks.
+ */
+function withEvery(t: WeeklyTarget, every: number, thisWeek: string): WeeklyTarget {
+  if (every <= 1) {
+    const { everyWeeks: _e, anchorWeek: _a, ...rest } = t
+    return rest
+  }
+  return { ...t, everyWeeks: every, anchorWeek: (t.everyWeeks ?? 1) > 1 && t.anchorWeek ? t.anchorWeek : thisWeek }
+}
+
+/** A target as the weekly-targets editor sees it. */
+export const targetEditOf = (t: WeeklyTarget): TargetEdit => ({ timesPerWeek: t.timesPerWeek, durationMin: t.durationMin, durationMax: t.durationMax, everyWeeks: t.everyWeeks ?? 1 })
+
 /** The weekly targets as first seeded from the protocol document. */
 export const seedWeeklyTargets = (): Partial<Record<ActivityKey, TargetEdit>> =>
-  Object.fromEntries(
-    protocolV1.weeklyTargets
-      .filter((t) => t.activityType !== 'rest')
-      .map((t) => [t.activityType, { timesPerWeek: t.timesPerWeek, durationMin: t.durationMin, durationMax: t.durationMax }]),
-  )
+  Object.fromEntries(protocolV1.weeklyTargets.filter((t) => t.activityType !== 'rest').map((t) => [t.activityType, targetEditOf(t)]))
 
 /** Undo a just-saved edit: drop that version so the previous one is current again. Never removes v1. */
 export async function dropProtocolVersion(version: number, d: BrainHealthDB = db) {
@@ -543,7 +594,7 @@ export async function resetWeekToUsual(weekStart: string, d: BrainHealthDB = db)
       await d.plannedSessions.update(p.id, { deletedAt: now(), updatedAt: now() })
     }
     const [protocol, profile] = await Promise.all([currentProtocol(d), getProfile(d)])
-    const drafts = profile.usualWeek?.length ? weekFromUsual(weekStart, profile.usualWeek) : generateWeek(weekStart, protocol.weeklyTargets, profile.restDay)
+    const drafts = profile.usualWeek?.length ? weekFromUsual(weekStart, profile.usualWeek, protocol.weeklyTargets) : generateWeek(weekStart, protocol.weeklyTargets, profile.restDay)
     for (const x of drafts) {
       const row = { ...newRecord(), ...x }
       await d.plannedSessions.add(row)

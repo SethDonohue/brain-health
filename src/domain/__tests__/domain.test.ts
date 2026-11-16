@@ -74,7 +74,7 @@ describe('weekly plan', () => {
   const ws = '2026-11-02'
   it('generates default placement', () => {
     const w = generateWeek(ws, P.weeklyTargets, 7)
-    expect(w.filter((x) => x.activityType === 'pickleball').map((x) => isoWeekday(x.date))).toEqual([1, 2, 4, 5])
+    expect(w.filter((x) => x.activityType === 'pickleball').map((x) => isoWeekday(x.date))).toEqual([1, 3, 4])
     expect(w.find((x) => x.activityType === 'mtb')!.date).toBe('2026-11-07')
     expect(w.find((x) => x.activityType === 'rest')!.date).toBe('2026-11-08')
   })
@@ -83,10 +83,10 @@ describe('weekly plan', () => {
     planned.find((p) => p.activityType === 'mtb')!.date = '2026-11-08'
     const r = checkRestDay(ws, planned, P.activityTypes)
     expect(r.conflict).toBe(true)
-    expect(r.candidates).toEqual(['2026-11-04', '2026-11-07'])
+    expect(r.candidates).toEqual(['2026-11-06', '2026-11-07'])
   })
   it('counts unplanned logs toward targets', () => {
-    const tp = targetProgress(P.weeklyTargets, [], [log({}), log({})])
+    const tp = targetProgress(P.weeklyTargets, ws, [], [log({}), log({})])
     expect(tp.find((t) => t.activityType === 'pickleball')!.done).toBe(2)
   })
   it('weeks start Monday', () => {

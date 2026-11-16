@@ -6,13 +6,13 @@ import { activeStrength, alive, repeatLastWeek, saveUsualWeek, startStrength, un
 import { weekTotals } from '../domain/cardio'
 import { addDaysKey, formatDuration, formatTimeRange, fromDateKey, weekDays } from '../domain/dates'
 import { byTime, checkRestDay, plannedStatus, targetProgress } from '../domain/plan'
-import { historyFor, targetLabel } from '../domain/strength'
+import { exercisesForDay, historyFor, nextDay, targetLabel } from '../domain/strength'
 import type { PlannedSession, Profile, ProtocolVersion, SessionLog, SetLog } from '../domain/types'
 import { fmtWeight, weightUnit } from '../domain/units'
 import { activityOf, useProfile, useProtocol, useToday, useWeek, type WeekData } from '../hooks'
 import { moveWithRestCheck } from '../sheets/MoveSheet'
 import { useUi } from '../store'
-import { Button, cx } from '../ui/primitives'
+import { Button, cx, Segmented } from '../ui/primitives'
 
 export function Train() {
   const today = useToday()
@@ -74,7 +74,7 @@ export function ResumeCard() {
 }
 
 function Targets({ week, protocol, profile }: { week: WeekData; protocol: ProtocolVersion; profile: Profile }) {
-  const progress = targetProgress(protocol.weeklyTargets, week.planned, week.logs)
+  const progress = targetProgress(protocol.weeklyTargets, week.weekStart, week.planned, week.logs)
   const totals = weekTotals(week.logs, protocol.activityTypes)
   const rest = week.planned.find((p) => p.activityType === 'rest')
   return (
@@ -357,9 +357,15 @@ function Strength({ protocol, profile, week, today }: { protocol: ProtocolVersio
     return { sets: alive(sets) as SetLog[], sessions: alive(sessions) }
   }, [])
   const plannedToday = week.planned.find((p) => p.date === today && p.activityType === 'strength' && plannedStatus(p, week.logs) === 'planned')
+  const days = protocol.workout.days ?? []
+  const upNext = data ? nextDay(protocol.workout, data.sessions) : undefined
+  const [picked, setPicked] = useState<string>()
+  const day = picked ?? upNext
+  const info = days.find((d) => d.key === day)
+  const exercises = exercisesForDay(protocol.workout, day)
 
   const start = async () => {
-    await startStrength(plannedToday?.id)
+    await startStrength(plannedToday?.id, day)
     setPlayer(true)
   }
 
@@ -367,17 +373,23 @@ function Strength({ protocol, profile, week, today }: { protocol: ProtocolVersio
     <section aria-label="Strength" className="mt-6 px-4">
       <h2 className="mb-2 font-medium">Strength</h2>
       <div className="rounded-2xl bg-surface p-4">
+        {days.length > 1 && day && (
+          <div className="mb-3">
+            <Segmented label="Workout" value={day} onChange={setPicked} options={days.map((d) => ({ value: d.key, label: d.name }))} />
+          </div>
+        )}
+        {info && <p className="text-sm font-medium">{day === upNext ? 'Up next. ' : ''}{info.note}</p>}
         <p className="text-sm text-ink-2">
-          {protocol.workout.exercises.length} exercises, {protocol.workout.sessionTargetMin[0]}–{protocol.workout.sessionTargetMin[1]} min. {plannedToday ? 'Planned for today.' : ''}
+          {exercises.length} exercises, {protocol.workout.sessionTargetMin[0]}–{protocol.workout.sessionTargetMin[1]} min. {plannedToday ? 'Planned for today.' : ''}
         </p>
         <Button className="mt-3 w-full" onClick={() => void start()}>
-          Start strength workout
+          {info ? `Start ${info.name.replace(/^Workout/, 'workout')}` : 'Start strength workout'}
         </Button>
         <Button variant="outline" className="mt-2 w-full" onClick={() => open({ kind: 'import', mode: 'routine' })}>
           Import a workout
         </Button>
         <ul className="mt-4 divide-y divide-line border-t border-line">
-          {protocol.workout.exercises.map((ex) => {
+          {exercises.map((ex) => {
             const lastAny = data
               ? ex.variants
                   .map((v) => ({ v, h: historyFor(ex.key, v.key, data.sets, data.sessions)[0] }))
@@ -388,8 +400,11 @@ function Strength({ protocol, profile, week, today }: { protocol: ProtocolVersio
               <li key={ex.key}>
                 <button onClick={() => open({ kind: 'exerciseHistory', exerciseKey: ex.key })} className="flex min-h-14 w-full items-center justify-between gap-3 py-2 text-left">
                   <span className="min-w-0">
-                    <span className="block font-medium">{ex.variants.map((v) => v.name).join(' or ')}</span>
-                    <span className="block text-xs text-ink-3">{targetLabel(ex, ex.variants[0])}</span>
+                    <span className="block font-medium">{ex.name}</span>
+                    <span className="block text-xs text-ink-3">
+                      {targetLabel(ex, ex.variants[0])}
+                      {ex.variants.length > 1 && `, ${ex.variants.map((v) => v.name).join(ex.day ? ' → ' : ' or ')}`}
+                    </span>
                   </span>
                   <span className="shrink-0 text-right text-sm text-ink-2">
                     {lastAny ? (

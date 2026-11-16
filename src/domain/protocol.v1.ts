@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import type { ProtocolVersion } from './types'
+import { HOME_WORKOUT } from './workout.home'
 
 // Protocol v1, seeded from the Brain Health Protocol spec. Editable as data later (protocol editor, M3).
 
@@ -32,6 +33,8 @@ export const ProtocolSchema = z.object({
       defaultDays: z.array(weekday),
       slot: z.enum(['am', 'pm']),
       note: z.string(),
+      everyWeeks: z.number().int().min(1).max(2).optional(),
+      anchorWeek: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
     }),
   ),
   workout: z.object({
@@ -46,8 +49,10 @@ export const ProtocolSchema = z.object({
           .min(1),
         cue: z.string(),
         muscleGroups: z.array(z.string()),
+        day: z.string().optional(),
       }),
     ),
+    days: z.array(z.object({ key: z.string(), name: z.string(), note: z.string() })).optional(),
   }),
   sleepRules: z.object({
     caffeineCutoffHours: z.number().positive(),
@@ -95,21 +100,21 @@ export const protocolV1: ProtocolVersion = {
   weeklyTargets: [
     {
       activityType: 'pickleball',
-      timesPerWeek: 4,
+      timesPerWeek: 3,
       durationMin: 120,
       durationMax: 180,
-      defaultDays: [1, 2, 4, 5],
+      defaultDays: [1, 3, 4],
       slot: 'am',
       note: 'Morning or midday. Finish well before the exercise cutoff.',
     },
     {
       activityType: 'strength',
       timesPerWeek: 2,
-      durationMin: 45,
+      durationMin: 50,
       durationMax: 60,
       defaultDays: [2, 4],
       slot: 'pm',
-      note: 'Late afternoon, done at least 4 hours before bed.',
+      note: 'Workout A Tuesday, B Thursday. Late afternoon, done at least 4 hours before bed.',
     },
     {
       activityType: 'mtb',
@@ -118,7 +123,9 @@ export const protocolV1: ProtocolVersion = {
       durationMax: 45,
       defaultDays: [6],
       slot: 'am',
-      note: '30–45 min of mostly uphill effort.',
+      note: '30–45 min of mostly uphill effort. Every other week in the rainy season.',
+      everyWeeks: 2,
+      anchorWeek: '2026-11-16',
     },
     {
       activityType: 'rest',
@@ -130,66 +137,7 @@ export const protocolV1: ProtocolVersion = {
       note: 'At least one full rest day. Rest counts as adherence.',
     },
   ],
-  workout: {
-    sessionTargetMin: [45, 60],
-    exercises: [
-      {
-        key: 'legs',
-        name: 'Legs',
-        targetSets: 3,
-        variants: [
-          { key: 'leg_press', name: 'Leg press', target: { kind: 'reps', min: 8, max: 12 }, weighted: true },
-          { key: 'squat', name: 'Squat', target: { kind: 'reps', min: 8, max: 12 }, weighted: true },
-        ],
-        cue: 'Lower for a slow 3 count, then drive up through your heels.',
-        muscleGroups: ['quads', 'glutes'],
-      },
-      {
-        key: 'chest',
-        name: 'Chest press',
-        targetSets: 3,
-        variants: [
-          { key: 'db_chest_press', name: 'Dumbbell chest press', target: { kind: 'reps', min: 10, max: 12 }, weighted: true },
-          { key: 'machine_chest_press', name: 'Machine chest press', target: { kind: 'reps', min: 10, max: 12 }, weighted: true },
-        ],
-        cue: 'Shoulder blades pinned back and down; control the lowering.',
-        muscleGroups: ['chest', 'triceps'],
-      },
-      {
-        key: 'pull',
-        name: 'Pull',
-        targetSets: 3,
-        variants: [
-          { key: 'cable_row', name: 'Cable row', target: { kind: 'reps', min: 10, max: 12 }, weighted: true },
-          { key: 'lat_pulldown', name: 'Lat pulldown', target: { kind: 'reps', min: 10, max: 12 }, weighted: true },
-        ],
-        cue: 'Lead with the elbows and squeeze the shoulder blades; no torso swing.',
-        muscleGroups: ['back', 'biceps'],
-      },
-      {
-        key: 'hinge',
-        name: 'Hinge',
-        targetSets: 3,
-        variants: [
-          { key: 'back_extension', name: 'Back extension', target: { kind: 'reps', min: 12, max: 12 }, weighted: true },
-          { key: 'rdl', name: 'Romanian deadlift', target: { kind: 'reps', min: 12, max: 12 }, weighted: true },
-        ],
-        cue: 'Hinge at the hips with a neutral spine; lower under control.',
-        muscleGroups: ['hamstrings', 'lower back'],
-      },
-      {
-        key: 'core',
-        name: 'Core',
-        targetSets: 3,
-        variants: [
-          { key: 'plank', name: 'Plank', target: { kind: 'hold', minSec: 45, maxSec: 60 }, weighted: false },
-          { key: 'hanging_knee_raise', name: 'Hanging knee raise', target: { kind: 'reps', min: 15, max: 15 }, weighted: false },
-        ],
-        cue: 'Brace as if about to be poked in the stomach; keep breathing.',
-        muscleGroups: ['core'],
-      },
-    ],
-  },
+  workout: HOME_WORKOUT,
   sleepRules: {
     caffeineCutoffHours: 10,
     exerciseCutoffHours: 4,

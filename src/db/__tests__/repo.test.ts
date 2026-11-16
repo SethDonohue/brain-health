@@ -13,7 +13,7 @@ describe('repo', () => {
     const ws = await ensureWeek('2026-11-05', d)
     await ensureWeek('2026-11-06', d)
     expect(ws).toBe('2026-11-02')
-    expect(await d.plannedSessions.count()).toBe(8)
+    expect(await d.plannedSessions.count()).toBe(7) // pickleball 3, strength 2, MTB 1 (an on week), rest 1
   })
   it('moves a session within the week and tracks status', async () => {
     const d = new BrainHealthDB('t2')
@@ -92,14 +92,18 @@ describe('servings and strength storage', () => {
     const { todayKey } = await import('../../domain/dates')
     await ensureWeek(todayKey(), d)
     await d.plannedSessions.add({ id: 'ps', createdAt: 0, updatedAt: 0, weekStart: '', date: todayKey(), activityType: 'strength', slot: 'pm', origin: 'added' })
-    const id = await startStrength(undefined, d)
-    expect(await startStrength(undefined, d)).toBe(id)
-    await saveSet(id, 'legs', 'leg_press', 0, { weightKg: 80, reps: 10 }, d)
-    await saveSet(id, 'legs', 'squat', 0, { weightKg: 60, reps: 12 }, d)
+    const id = await startStrength(undefined, undefined, d)
+    expect(await startStrength(undefined, undefined, d)).toBe(id)
+    expect((await d.sessionLogs.get(id))!.workoutDay).toBe('A') // first workout is A
+    await saveSet(id, 'a_split_squat', 'split_squat', 0, { reps: 10 }, d)
+    await saveSet(id, 'a_split_squat', 'bulgarian', 0, { reps: 12 }, d)
     expect(await d.setLogs.count()).toBe(1)
     await finishStrength(id, { durationMin: 50, intensity: 'moderate' }, d)
     expect(await activeStrength(d)).toBeUndefined()
     expect((await d.sessionLogs.get(id))!.plannedSessionId).toBeDefined()
+    // the next workout alternates to B
+    const next = await startStrength(undefined, undefined, d)
+    expect((await d.sessionLogs.get(next))!.workoutDay).toBe('B')
   })
 })
 
@@ -137,5 +141,43 @@ describe('editable diet targets', () => {
     await dropProtocolVersion(1, d)
     expect(await d.protocols.count()).toBe(1)
     expect(seedDietTargets().leafy_greens).toBe(6)
+  })
+})
+
+describe('app updates', () => {
+  it('moves an existing phone to the home A/B workouts and new targets once', async () => {
+    const { protocolV1 } = await import('../../domain/protocol.v1')
+    const { currentProtocol, defaultProfile } = await import('../repo')
+    const { todayKey, weekStartOf } = await import('../../domain/dates')
+    const d = new BrainHealthDB('u1')
+    // a phone from v0.7.0: gym workout, pickleball 4 a week, weekly MTB, a custom diet target
+    const { everyWeeks: _e, anchorWeek: _a, ...weeklyMtb } = protocolV1.weeklyTargets.find((t) => t.activityType === 'mtb')!
+    const old = {
+      ...structuredClone(protocolV1),
+      version: 3,
+      dietGroups: protocolV1.dietGroups.map((g) => (g.key === 'nuts' ? { ...g, target: 7 } : g)),
+      weeklyTargets: protocolV1.weeklyTargets.map((t) =>
+        t.activityType === 'pickleball' ? { ...t, timesPerWeek: 4, defaultDays: [1, 2, 4, 5] as never } : t.activityType === 'mtb' ? weeklyMtb : t.activityType === 'strength' ? { ...t, durationMin: 45 } : t,
+      ),
+      workout: { sessionTargetMin: [45, 60] as [number, number], exercises: [{ key: 'legs', name: 'Legs', targetSets: 3, variants: [{ key: 'leg_press', name: 'Leg press', target: { kind: 'reps' as const, min: 8, max: 12 }, weighted: true }], cue: '', muscleGroups: ['quads'] }] },
+    }
+    await d.protocols.put(old)
+    const { appliedUpdates: _u, ...oldProfile } = defaultProfile()
+    await d.profile.put(oldProfile)
+
+    await ensureSeed(d)
+    const cur = await currentProtocol(d)
+    expect(cur.version).toBe(4)
+    expect(cur.workout.days?.map((x) => x.key)).toEqual(['A', 'B'])
+    expect(cur.workout.exercises).toHaveLength(16)
+    expect(cur.workout.sessionTargetMin).toEqual([50, 60])
+    const t = (k: string) => cur.weeklyTargets.find((x) => x.activityType === k)!
+    expect(t('pickleball')).toMatchObject({ timesPerWeek: 3, defaultDays: [1, 3, 4] })
+    expect(t('strength')).toMatchObject({ durationMin: 50, durationMax: 60 })
+    expect(t('mtb')).toMatchObject({ timesPerWeek: 1, everyWeeks: 2, anchorWeek: weekStartOf(todayKey()) })
+    expect(cur.dietGroups.find((g) => g.key === 'nuts')!.target).toBe(7) // other edits kept
+
+    await ensureSeed(d)
+    expect((await currentProtocol(d)).version).toBe(4) // only once
   })
 })

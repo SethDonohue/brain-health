@@ -5,7 +5,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useRef, useState } from 'react'
 import { restoreBackup, type Backup } from '../db/backup'
 import { db } from '../db/db'
-import { alive, clearUsualWeek, dropProtocolVersion, movePlanned, removeCustomActivity, restoreCustomActivity, saveWeeklyTargets, seedWeeklyTargets, updateProfile, type TargetEdit } from '../db/repo'
+import { alive, clearUsualWeek, dropProtocolVersion, movePlanned, removeCustomActivity, restoreCustomActivity, saveWeeklyTargets, seedWeeklyTargets, targetEditOf, updateProfile, type TargetEdit } from '../db/repo'
 import { getApiKey, ImportError, MODEL, setApiKey, testKey } from '../ai/extract'
 import { dateForWeekday, formatDuration, todayKey, weekdayLong, weekStartOf } from '../domain/dates'
 import { moveTab, normalizeTabOrder } from '../domain/sleep'
@@ -137,7 +137,7 @@ function WeeklyTargets({ usualWeek }: { usualWeek: boolean }) {
 function WeeklyTargetsForm({ protocol, usualWeek }: { protocol: ProtocolVersion; usualWeek: boolean }) {
   const toast = useUi((s) => s.showToast)
   const targets = protocol.weeklyTargets.filter((t) => t.activityType !== 'rest')
-  const start: Drafts = Object.fromEntries(targets.map((t) => [t.activityType, { timesPerWeek: t.timesPerWeek, durationMin: t.durationMin, durationMax: t.durationMax }]))
+  const start: Drafts = Object.fromEntries(targets.map((t) => [t.activityType, targetEditOf(t)]))
   const [draft, setDraft] = useState<Drafts>(start)
   const defaults = seedWeeklyTargets()
   const same = (a: Drafts, b: Drafts) => targets.every((t) => JSON.stringify(a[t.activityType]) === JSON.stringify(b[t.activityType]))
@@ -164,6 +164,20 @@ function WeeklyTargetsForm({ protocol, usualWeek }: { protocol: ProtocolVersion;
               <Stepper label={`${label(t.activityType)} times per week`} value={d.timesPerWeek} step={1} min={0} max={7} onChange={(v) => set(t.activityType, { timesPerWeek: v })} format={(v) => `${v}× a week`} />
               {d.timesPerWeek > 0 && (
                 <>
+                  <div className="mt-3">
+                    <Segmented
+                      label={`${label(t.activityType)} how often`}
+                      value={(d.everyWeeks ?? 1) > 1 ? 'other' : 'every'}
+                      onChange={(v) => set(t.activityType, { everyWeeks: v === 'other' ? 2 : 1 })}
+                      options={[
+                        { value: 'every', label: 'Every week' },
+                        { value: 'other', label: 'Every 2 weeks' },
+                      ]}
+                    />
+                    {(d.everyWeeks ?? 1) > 1 && (
+                      <p className="mt-1 text-sm text-ink-2">{(t.everyWeeks ?? 1) > 1 ? 'Planned on alternate weeks; off weeks have no target.' : 'Starts this week, then every other week. Off weeks have no target.'}</p>
+                    )}
+                  </div>
                   <div className="mt-3 mb-1 text-sm text-ink-2">Shortest usual session</div>
                   <Stepper
                     label={`${label(t.activityType)} shortest session`}

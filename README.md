@@ -4,7 +4,7 @@ A personal Android app for following a brain-health protocol: exercise, sleep ha
 
 Single user, offline-first, no account. Everything is stored on the phone.
 
-> **Status:** Milestone 1 (M1) in progress. Current build: v0.7.0 (versionCode 10).
+> **Status:** Milestone 1 (M1) in progress. Current build: v0.8.0 (versionCode 11).
 > This is a personal project, not a medical device or medical advice.
 
 ## Features
@@ -30,6 +30,8 @@ Single user, offline-first, no account. Everything is stored on the phone.
 - Weekly targets with a movable plan: press and hold to drag a session to another day, with a rest-day check
 - Optional start time and length on planned sessions (shown as 3–5 PM, sorted by time); Repeat last week keeps times, the usual week doesn't
 - Repeat last week, and save a usual week that new weeks start from
+- Home strength plan: two full-body workouts, A (heavier) and B (lighter), with no exercise in common; Start picks the next one and you can switch
+- Each exercise has steps from easy to hard (e.g. split squat → Bulgarian → with dumbbells); the player suggests the next step or a heavier weight when every set hits the top of the range
 - Strength player with per-set logging, weight carry-down and a rest timer
 - Import bookings (for example, a court-booking screenshot) or a strength workout (see AI import)
 
@@ -41,7 +43,7 @@ Single user, offline-first, no account. Everything is stored on the phone.
 **Settings**
 - Imperial or metric units (stored metric, converted for display)
 - Tab order, rest day, cardio goals, bedtime
-- Weekly targets: times per week and usual session length for each activity (applies from this week; past weeks keep the targets they had)
+- Weekly targets: times per week, every week or every other week (e.g. MTB in the rainy season), and usual session length for each activity (applies from this week; past weeks keep the targets they had)
 - Automatic daily backups (keeps the last 7), back up now, restore from a file or a saved backup
 - Claude API key for imports
 

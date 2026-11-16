@@ -15,6 +15,15 @@ export const isoWeekday = (key: string): IsoWeekday => getISODay(fromDateKey(key
 export const weekDays = (weekStart: string): string[] =>
   Array.from({ length: 7 }, (_, i) => addDaysKey(weekStart, i))
 
+/** Whole weeks from one week start to another (negative when b is earlier). */
+export const weeksBetween = (a: string, b: string): number => {
+  const utc = (k: string) => {
+    const [y, m, d] = k.split('-').map(Number)
+    return Date.UTC(y, m - 1, d)
+  }
+  return Math.round((utc(b) - utc(a)) / (7 * 86_400_000))
+}
+
 export const dateForWeekday = (weekStart: string, wd: IsoWeekday): string => addDaysKey(weekStart, wd - 1)
 
 export const WEEKDAY_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const

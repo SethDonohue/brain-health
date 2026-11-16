@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { db } from '../db/db'
 import { activeStrength, alive, deleteSession, finishStrength, saveSet, unsaveSet } from '../db/repo'
 import { formatDuration } from '../domain/dates'
-import { historyFor, prefill, targetLabel, type SetPlan } from '../domain/strength'
+import { dayName, exercisesForDay, historyFor, nextStep, prefill, targetLabel, type SetPlan } from '../domain/strength'
 import type { Exercise, Intensity, Profile, ProtocolVersion, SessionLog, SetLog } from '../domain/types'
 import { displayToKg, fmtWeight, weightStep, weightUnit } from '../domain/units'
 import { useProfile, useProtocol } from '../hooks'
@@ -50,7 +50,8 @@ const clock = (ms: number) => {
 
 function Player({ session, profile, protocol }: { session: SessionLog; profile: Profile; protocol: ProtocolVersion }) {
   const setPlayer = useUi((s) => s.setPlayer)
-  const exercises = protocol.workout.exercises
+  const exercises = useMemo(() => exercisesForDay(protocol.workout, session.workoutDay), [protocol.workout, session.workoutDay])
+  const title = dayName(protocol.workout, session.workoutDay)
   const now = useTick(500)
   const [idx, setIdx] = useState(0)
   const [restEnds, setRestEnds] = useState<number | null>(null)
@@ -94,7 +95,7 @@ function Player({ session, profile, protocol }: { session: SessionLog; profile: 
     scroller.current?.scrollTo(0, 0)
   }, [idx])
 
-  if (!data || !plans) return <Shell onHide={() => setPlayer(false)} elapsed={now - session.startAt} target={protocol.workout.sessionTargetMin} />
+  if (!data || !plans) return <Shell onHide={() => setPlayer(false)} elapsed={now - session.startAt} target={protocol.workout.sessionTargetMin} title={title} />
 
   const onSummary = idx >= exercises.length
   const ex = exercises[Math.min(idx, exercises.length - 1)]
@@ -137,7 +138,7 @@ function Player({ session, profile, protocol }: { session: SessionLog; profile: 
   }
 
   return (
-    <Shell onHide={() => setPlayer(false)} elapsed={now - session.startAt} target={protocol.workout.sessionTargetMin} onFinish={onSummary ? undefined : () => setIdx(exercises.length)}>
+    <Shell onHide={() => setPlayer(false)} elapsed={now - session.startAt} target={protocol.workout.sessionTargetMin} title={title} onFinish={onSummary ? undefined : () => setIdx(exercises.length)}>
       <nav aria-label="Exercises" className="flex gap-1 px-4 pt-3">
         {exercises.map((e, i) => {
           const complete = doneCount(e) >= e.targetSets
@@ -157,7 +158,7 @@ function Player({ session, profile, protocol }: { session: SessionLog; profile: 
 
       <div ref={scroller} className="flex-1 overflow-y-auto px-4 pb-6">
         {onSummary ? (
-          <Summary session={session} profile={profile} protocol={protocol} saved={saved} elapsed={now - session.startAt} onBack={() => setIdx(exercises.length - 1)} />
+          <Summary session={session} profile={profile} exercises={exercises} saved={saved} elapsed={now - session.startAt} onBack={() => setIdx(exercises.length - 1)} />
         ) : (
           <ExerciseView
             key={ex.key}
@@ -209,7 +210,7 @@ function lastVariant(ex: Exercise, sets: SetLog[], sessions: SessionLog[]): stri
   return mine[0]?.variant
 }
 
-function Shell({ children, onHide, onFinish, elapsed, target }: { children?: React.ReactNode; onHide: () => void; onFinish?: () => void; elapsed: number; target: [number, number] }) {
+function Shell({ children, onHide, onFinish, elapsed, target, title }: { children?: React.ReactNode; onHide: () => void; onFinish?: () => void; elapsed: number; target: [number, number]; title?: string }) {
   const mins = elapsed / 60000
   const over = mins > target[1]
   return (
@@ -221,7 +222,7 @@ function Shell({ children, onHide, onFinish, elapsed, target }: { children?: Rea
         <div className="text-center">
           <div className={cx('num text-xl font-semibold', over && 'text-amber')}>{clock(elapsed)}</div>
           <div className="text-xs text-ink-3">
-            aim for {target[0]}–{target[1]} min
+            {title ? `${title}, ` : ''}aim for {target[0]}–{target[1]} min
           </div>
         </div>
         {onFinish ? (
@@ -262,6 +263,7 @@ function ExerciseView({
   const u = profile.units
   const last = history[0]
   const suggestion = useMemo(() => prefill(ex, v, history, u).suggestIncrease, [ex, v, history, u])
+  const step = useMemo(() => nextStep(ex, v, history), [ex, v, history])
   const fmtSet = (s: SetLog) => (v.target.kind === 'hold' ? `${s.holdSec ?? 0} s` : v.weighted && s.weightKg != null ? `${fmtWeight(s.weightKg, u)}×${s.reps ?? 0}` : `${s.reps ?? 0}`)
 
   return (
@@ -299,6 +301,12 @@ function ExerciseView({
       {suggestion && (
         <p className="mt-3 rounded-xl bg-sunk px-4 py-3 text-sm">
           You hit the top of the range on every set last time, so this starts at {fmtWeight(suggestion.toKg, u)} {weightUnit(u)} (up from {fmtWeight(suggestion.fromKg, u)}).
+        </p>
+      )}
+
+      {step && (
+        <p className="mt-3 rounded-xl bg-sunk px-4 py-3 text-sm">
+          You hit the top of the range on every set last time. Ready for the next step? Switch to {step.name} above.
         </p>
       )}
 
@@ -396,7 +404,7 @@ function WeightInput({ kg, baseKg, units, label, onChange }: { kg?: number; base
   )
 }
 
-function Summary({ session, profile, protocol, saved, elapsed, onBack }: { session: SessionLog; profile: Profile; protocol: ProtocolVersion; saved: SetLog[]; elapsed: number; onBack: () => void }) {
+function Summary({ session, profile, exercises, saved, elapsed, onBack }: { session: SessionLog; profile: Profile; exercises: Exercise[]; saved: SetLog[]; elapsed: number; onBack: () => void }) {
   const setPlayer = useUi((s) => s.setPlayer)
   const toast = useUi((s) => s.showToast)
   const [duration, setDuration] = useState(Math.max(5, Math.round(elapsed / 60000)))
@@ -422,7 +430,7 @@ function Summary({ session, profile, protocol, saved, elapsed, onBack }: { sessi
         Started {format(session.startAt, 'h:mm a')}, {saved.length} sets done.
       </p>
       <ul className="mt-4 divide-y divide-line rounded-2xl bg-surface">
-        {protocol.workout.exercises.map((ex) => {
+        {exercises.map((ex) => {
           const sets = saved.filter((s) => s.exerciseKey === ex.key).sort((a, b) => a.setIndex - b.setIndex)
           const v = ex.variants.find((x) => x.key === sets[0]?.variant) ?? ex.variants[0]
           const top = Math.max(0, ...sets.map((s) => s.weightKg ?? 0))
