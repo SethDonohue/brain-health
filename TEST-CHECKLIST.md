@@ -22,12 +22,11 @@ Tick as you go. Items marked 📱 can only be checked on the real phone. Last up
 
 ## Build 10: weekly targets
 - [ ] Settings → Weekly targets lists Pickleball, Strength and Mountain biking
-- [ ] Pickleball − to 3 → Save targets: Train and Today tiles show "of 3" straight away
-- [ ] Undo in the toast puts it back to 4
+- [ ] Change a target → Save targets: Train and Today tiles update straight away; Undo in the toast puts it back
 - [ ] Change a session length: Today's hint for an untimed session shows the new range
 - [ ] Set Mountain biking to 0: its tile disappears; set it back
-- [ ] Reset to protocol targets brings back 4 / 2 / 1
-- [ ] Week tab: last week still shows "of 4" after lowering pickleball to 3 (past weeks keep their target)
+- [ ] Reset to protocol targets brings back 3 / 2 / 1 (MTB every 2 weeks)
+- [ ] Week tab: past weeks keep the target they had
 - [ ] This week's planned sessions don't change when you save; next week starts with the new count (unless you saved a usual week)
 
 ## Build 9: session times
