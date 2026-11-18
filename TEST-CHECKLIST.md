@@ -1,6 +1,6 @@
 # Brain Health: phone test checklist
 
-Tick as you go. Items marked 📱 can only be checked on the real phone. Last updated for Build 12 (v0.9.0).
+Tick as you go. Items marked 📱 can only be checked on the real phone. Last updated for Build 13 (v0.10.0).
 
 ## 0. Install
 - [ ] APK installs over the old app and your data is still there
@@ -8,13 +8,19 @@ Tick as you go. Items marked 📱 can only be checked on the real phone. Last up
 - [ ] 📱 New brain icon on the home screen and in the app drawer
 - [ ] Settings → Import with Claude still shows your key (moved into the app's database, no need to paste it again)
 
-## New in Build 12: Home tab and exercise demos
+## New in Build 13: all exercise drawings
+- [ ] Every exercise's ⓘ now shows a drawing for every step (no "no drawing" message on any of the 16)
+- [ ] Workout A: Chin-up (band pulldown kneeling, negatives lower slowly, chin-up), Single-leg RDL (wall, free, dumbbell), Overhead press (pike, dumbbell), Hamstring curl (both legs, one leg up), Side plank (knees, full), Calf raise (on a step, hand on the wall)
+- [ ] Workout B: Row (band seated, dumbbell with a hand on a chair), Push-up or floor press (counter, floor, lying press), Hip thrust (bridge, one leg, shoulders on the couch), Lateral raise (front view), Face pull (band, prone Y), Plank (plank, long plank), Pallof press
+- [ ] Each drawing looks like the move to you; note any that look wrong or confusing
+- [ ] 📱 Animations run smoothly and stop when the popup closes
+
+## Build 12: Home tab and exercise demos
 - [ ] The first tab is now called Home (same screen as before); Settings → Tab order says Home too
 - [ ] Train → Strength list: each exercise has an ⓘ button on the left; tapping it opens the demo, tapping the row still opens history
 - [ ] Split squat ⓘ: a looping figure; Split squat / Bulgarian / Bulgarian + DB buttons switch the drawing (couch, dumbbells)
 - [ ] Decline push-up ⓘ: Push-up, Feet on couch and Loaded (backpack) all animate
 - [ ] Workout B → Squat ⓘ: Bodyweight and Goblet animate
-- [ ] Other exercises say the drawing is coming later
 - [ ] Tap the drawing: it pauses; tap again: it plays
 - [ ] 📱 "Watch video examples" opens YouTube (app or browser) with a search for that step; back returns to the app
 - [ ] In the workout player: the ⓘ next to the step name opens the demo on top of the workout; Close or the back button returns to the workout without losing sets

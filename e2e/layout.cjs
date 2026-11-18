@@ -39,7 +39,7 @@ const SHEETS = [
   ['Train', /^Import/, 'import'],
   ['Train', /^Pickleball, 5–7 PM/, 'planned-timed'],
   ['Train', /^How to do Split squat$/, 'exercise-demo'],
-  ['Train', /^How to do Chin-up$/, 'exercise-demo-no-drawing'],
+  ['Train', /^How to do Chin-up$/, 'exercise-demo-chin-up'],
   ['Train', /^Split squat 3 ×/, 'exercise-history'],
 ]
 

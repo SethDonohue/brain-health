@@ -294,7 +294,7 @@ export function ExerciseDemoSheet({ exerciseKey, variantKey }: { exerciseKey: st
       {demo ? (
         <ExerciseDemo key={v.key} demo={demo} label={v.name} />
       ) : (
-        <p className="rounded-xl bg-sunk px-4 py-3 text-sm text-ink-2">A drawing of this one is coming in a later build. The video link below shows it now.</p>
+        <p className="rounded-xl bg-sunk px-4 py-3 text-sm text-ink-2">No drawing for this exercise. The video link below shows how it’s done.</p>
       )}
       <p className="mt-3 text-sm text-ink-2">{ex.cue}</p>
       <a
