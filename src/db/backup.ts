@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { db, type BrainHealthDB } from './db'
 import { alive } from './repo'
 import type { ActivityType, SessionLog } from '../domain/types'
-import { moderateEquivalent } from '../domain/cardio'
+import { logModerateEq } from '../domain/cardio'
 
 const APP = 'brain-health'
 /** Tables that stay on this phone: not exported, not cleared by a restore. */
@@ -60,7 +60,7 @@ const csvCell = (v: unknown) => {
 /** Activity log as CSV for spreadsheets. Distances in km regardless of the display setting. */
 export function sessionsCsv(sessions: SessionLog[], types: ActivityType[]): string {
   const label = (k: string) => types.find((t) => t.key === k)?.label ?? k
-  const header = ['date', 'activity', 'start', 'duration_min', 'intensity', 'moderate_equivalent_min', 'distance_km', 'rpe', 'status', 'note']
+  const header = ['date', 'activity', 'start', 'duration_min', 'intensity', 'moderate_equivalent_min', 'distance_km', 'rpe', 'status', 'note', 'climb_min', 'descent_min']
   const rows = alive(sessions)
     .filter((s) => s.status !== 'active')
     .sort((a, b) => a.startAt - b.startAt)
@@ -70,11 +70,13 @@ export function sessionsCsv(sessions: SessionLog[], types: ActivityType[]): stri
       format(s.startAt, 'HH:mm'),
       s.durationMin,
       s.intensity,
-      s.status === 'done' && types.find((t) => t.key === s.activityType)?.isCardio ? moderateEquivalent(s.durationMin, s.intensity) : 0,
+      s.status === 'done' && types.find((t) => t.key === s.activityType)?.isCardio ? logModerateEq(s) : 0,
       s.distanceM != null ? (s.distanceM / 1000).toFixed(2) : '',
       s.rpe ?? '',
       s.status,
       s.note ?? '',
+      s.parts?.climb.min ?? '',
+      s.parts?.descent.min ?? '',
     ])
   return [header, ...rows].map((r) => r.map(csvCell).join(',')).join('\n')
 }

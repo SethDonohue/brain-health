@@ -210,6 +210,13 @@ export interface UsualWeekItem {
 
 export type SessionStatus = 'done' | 'skipped' | 'active'
 
+/** One half of a mountain bike ride: minutes, how hard, optional effort (RPE 1–10). */
+export interface RidePart {
+  min: number
+  intensity: Intensity
+  rpe?: number
+}
+
 export interface SessionLog extends BaseRecord {
   date: string
   activityType: ActivityKey
@@ -224,6 +231,9 @@ export interface SessionLog extends BaseRecord {
   protocolVersion: number
   /** strength only: which workout (A, B…) was done */
   workoutDay?: string
+  /** mountain bike only: the ride split into climbing and descending. `durationMin` is their sum and
+   *  `intensity` the harder of the two; totals use each part's own intensity. Old rides have none. */
+  parts?: { climb: RidePart; descent: RidePart }
 }
 
 export interface SetLog extends BaseRecord {
@@ -251,6 +261,8 @@ export interface SleepLog extends BaseRecord {
   wakeAt: number
   quality: 1 | 2 | 3 | 4 | 5
   note?: string
+  /** alcoholic drinks that evening; 6 means "6 or more". Nights logged before v0.11.0 have none (shown as 0). */
+  alcoholDrinks?: number
 }
 
 export interface ChecklistLog extends BaseRecord {

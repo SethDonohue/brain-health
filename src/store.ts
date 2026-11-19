@@ -1,11 +1,13 @@
 import type { ImportMode, SharedInput } from './ai/types'
 import { create } from 'zustand'
 import type { ActivityKey, CaffeineLog, PlannedSession, SessionLog, TabKey } from './domain/types'
+import type { VoiceDraft } from './domain/voice'
 
 export type Tab = TabKey
 
 export type Sheet =
-  | { kind: 'log'; planned?: PlannedSession; activity?: ActivityKey; edit?: SessionLog }
+  | { kind: 'log'; planned?: PlannedSession; activity?: ActivityKey; edit?: SessionLog; prefill?: VoiceDraft }
+  | { kind: 'voiceLog' }
   | { kind: 'move'; planned: PlannedSession }
   | { kind: 'restPick'; weekStart: string; candidates: string[] }
   | { kind: 'settings' }

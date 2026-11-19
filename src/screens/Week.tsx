@@ -221,6 +221,13 @@ function SleepCard({ w }: { w: WeekSummary }) {
           <span>Hard exercise inside 4 h of bed</span>
           <span className={cx('num font-semibold', s.lateExerciseNights > 0 && 'text-amber')}>{s.lateExerciseNights}</span>
         </li>
+        <li className="flex min-h-11 items-center justify-between">
+          <span>Nights with alcohol</span>
+          <span className="num font-semibold">
+            {s.alcoholNights}
+            {s.alcoholNights > 0 && <span className="font-normal text-ink-2">, {s.alcoholDrinks} drink{s.alcoholDrinks === 1 ? '' : 's'}</span>}
+          </span>
+        </li>
       </ul>
     </Card>
   )

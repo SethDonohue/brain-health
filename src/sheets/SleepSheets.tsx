@@ -13,7 +13,7 @@ import {
   updateProfile,
 } from '../db/repo'
 import { atMinutes, formatDuration, formatTime, fromDateKey, hmToMinutes, weekdayLong } from '../domain/dates'
-import { nightTimes, QUALITY_LABELS } from '../domain/sleep'
+import { ALCOHOL_MAX, nightTimes, QUALITY_LABELS } from '../domain/sleep'
 import { bedtimeFor, cutoffsFor } from '../domain/sleepTimes'
 import type { CaffeineLog, IsoWeekday, SleepLog } from '../domain/types'
 import { useProfile, useProtocol } from '../hooks'
@@ -22,6 +22,9 @@ import { useUi } from '../store'
 import { Button, cx, Field, Sheet, Stepper } from '../ui/primitives'
 
 const timeInput = 'num min-h-12 rounded-xl border border-line bg-surface px-3 text-lg'
+
+/** 0 to 5, then "6+". */
+const ALCOHOL_CHOICES = Array.from({ length: ALCOHOL_MAX + 1 }, (_, i) => i)
 
 export function SleepLogSheet({ night }: { night: string }) {
   const profile = useProfile()
@@ -38,12 +41,13 @@ function SleepLogForm({ night, log, bed: bed0, wake: wake0 }: { night: string; l
   const [wake, setWake] = useState(wake0)
   const [quality, setQuality] = useState<SleepLog['quality'] | undefined>(log?.quality)
   const [note, setNote] = useState(log?.note ?? '')
+  const [drinks, setDrinks] = useState(log?.alcoholDrinks ?? 0)
   const t = nightTimes(night, bed, wake)
   const mins = Math.round((t.wakeAt - t.bedAt) / 60000)
 
   const save = async () => {
     if (!quality) return
-    await saveSleepLog({ night, ...t, quality, note: note.trim() || undefined })
+    await saveSleepLog({ night, ...t, quality, note: note.trim() || undefined, alcoholDrinks: drinks })
     close()
     toast({ message: `Night saved: ${formatDuration(mins)}, ${QUALITY_LABELS[quality - 1].toLowerCase()}` })
   }
@@ -66,6 +70,20 @@ function SleepLogForm({ night, log, bed: bed0, wake: wake0 }: { night: string; l
       <Field label="How well did you sleep?">
         <QualityPicker value={quality} onPick={setQuality} />
       </Field>
+      <Field label="Alcoholic drinks that evening">
+        <select
+          aria-label="Alcoholic drinks"
+          value={drinks}
+          onChange={(e) => setDrinks(Number(e.target.value))}
+          className="num min-h-12 w-32 rounded-xl border border-line bg-surface px-3 text-lg"
+        >
+          {ALCOHOL_CHOICES.map((n) => (
+            <option key={n} value={n}>
+              {n === ALCOHOL_MAX ? `${n}+` : n}
+            </option>
+          ))}
+        </select>
+      </Field>
       <Field label="Note">
         <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional" className="min-h-12 w-full rounded-xl border border-line bg-surface px-3" />
       </Field>
@@ -76,7 +94,7 @@ function SleepLogForm({ night, log, bed: bed0, wake: wake0 }: { night: string; l
             onClick={async () => {
               await deleteSleepLog(log.id)
               close()
-              toast({ message: 'Night deleted', action: { label: 'Undo', run: () => void saveSleepLog({ night, bedAt: log.bedAt, wakeAt: log.wakeAt, quality: log.quality, note: log.note }) } })
+              toast({ message: 'Night deleted', action: { label: 'Undo', run: () => void saveSleepLog({ night, bedAt: log.bedAt, wakeAt: log.wakeAt, quality: log.quality, note: log.note, alcoholDrinks: log.alcoholDrinks }) } })
             }}
           >
             Delete

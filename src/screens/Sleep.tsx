@@ -3,7 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/db'
 import { alive, deleteCaffeine, logCaffeine, restoreCaffeine, saveSleepLog, setChecklistItem } from '../db/repo'
 import { addDaysKey, formatDuration, formatTime, fromDateKey, toDateKey } from '../domain/dates'
-import { currentNight, lastNight, nightFlags, nightTimes, QUALITY_LABELS } from '../domain/sleep'
+import { currentNight, drinksText, lastNight, nightFlags, nightTimes, QUALITY_LABELS } from '../domain/sleep'
 import { bedtimeFor, cutoffsFor } from '../domain/sleepTimes'
 import type { CaffeineLog, ChecklistLog, DrinkPreset, Profile, ProtocolVersion, SessionLog, SleepLog } from '../domain/types'
 import { roomTempRange } from '../domain/units'
@@ -90,6 +90,7 @@ function MorningCard({ profile, night, logs }: { profile: Profile; night: string
           <span className="text-right">
             <span className="num block text-2xl font-semibold">{formatDuration(Math.round((log.wakeAt - log.bedAt) / 60000))}</span>
             <span className="text-sm text-ink-2">{QUALITY_LABELS[log.quality - 1]}</span>
+            {!!log.alcoholDrinks && <span className="block text-xs text-ink-3">{drinksText(log.alcoholDrinks)}</span>}
           </span>
         </button>
       </section>
@@ -308,6 +309,7 @@ function History({ profile, protocol, last, data }: { profile: Profile; protocol
             ticks > 0 && `Checklist ${ticks}/${items}`,
             flags.lateCaffeine.length > 0 && 'late caffeine',
             flags.lateSessions.length > 0 && 'late hard exercise',
+            !!log?.alcoholDrinks && drinksText(log.alcoholDrinks),
           ].filter(Boolean) as string[]
           return (
             <li key={n}>

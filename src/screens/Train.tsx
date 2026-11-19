@@ -3,7 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useRef, useState } from 'react'
 import { db } from '../db/db'
 import { activeStrength, alive, repeatLastWeek, saveUsualWeek, startStrength, undoPlanChange } from '../db/repo'
-import { weekTotals } from '../domain/cardio'
+import { ridePartsText, weekTotals } from '../domain/cardio'
 import { addDaysKey, formatDuration, formatTimeRange, fromDateKey, weekDays } from '../domain/dates'
 import { byTime, checkRestDay, plannedStatus, targetProgress } from '../domain/plan'
 import { exercisesForDay, historyFor, nextDay, targetLabel } from '../domain/strength'
@@ -346,6 +346,7 @@ function LoggedChip({ log, protocol }: { log: SessionLog; protocol: ProtocolVers
   return (
     <button onClick={() => open({ kind: 'log', edit: log })} className="min-h-11 rounded-full bg-sunk px-3 text-sm text-ink-2" aria-label={`${label}, logged ${log.durationMin} minutes. Edit`}>
       {label} {formatDuration(log.durationMin)}
+      {log.parts ? ` (${ridePartsText(log, formatDuration)})` : ''}
     </button>
   )
 }

@@ -4,20 +4,22 @@ A personal Android app for following a brain-health protocol: exercise, sleep ha
 
 Single user, offline-first, no account. Everything is stored on the phone.
 
-> **Status:** Milestone 1 (M1) in progress. Current build: v0.10.0 (versionCode 13).
+> **Status:** Milestone 1 (M1) in progress. Current build: v0.11.0 (versionCode 14).
 > This is a personal project, not a medical device or medical advice.
 
 ## Features
 
 **Home**
-- Weekly total exercise and weekly cardio at a glance (cardio counts vigorous minutes double; floor 150, target 300 moderate-equivalent minutes)
+- Weekly total exercise and weekly cardio at a glance (cardio counts vigorous minutes double; floor 300, target 600 moderate-equivalent minutes, editable in Settings; the research behind it is in the Project docs)
 - Today's planned sessions, with booked times (for example 3–5 PM)
 - One-tap bike commute logging and a full "Log activity" form with intensity
+- Mountain bike rides can be split into climbing and descending (both vigorous by default, with their own effort), still one ride and one session
+- "Say it instead": type or dictate (with the keyboard's microphone) "pickleball two hours yesterday" and check a preview before it is saved; plain rules, no internet
 - Custom activities (for example, hiking)
 - Cutoff times from your bedtime: caffeine, exercise and hot shower
 
 **Sleep**
-- Bedtime setting and a nightly sleep log (times, quality, checklist)
+- Bedtime setting and a nightly sleep log (times, quality, alcoholic drinks that evening, checklist)
 - Caffeine logged per drink, with editable drinks and amounts
 
 **Eat**

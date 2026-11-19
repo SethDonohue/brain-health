@@ -45,7 +45,7 @@ describe('weekly summary', () => {
     input.sessions = [sess({}), sess({ activityType: 'mtb', date: '2026-11-08', startAt: at('2026-11-08', '09:00'), durationMin: 45, intensity: 'vigorous' })]
     input.planned = [{ ...base, id: 'r', weekStart: '2026-11-02', date: '2026-11-08', activityType: 'rest', slot: 'am', origin: 'template' }]
     const night = (n: string, q: SleepLog['quality']): SleepLog => ({ ...base, id: n, night: n, bedAt: at(n, '22:30'), wakeAt: at(n, '22:30') + 8 * 3600_000, quality: q })
-    input.sleepLogs = [night('2026-11-02', 4), night('2026-11-03', 2)]
+    input.sleepLogs = [{ ...night('2026-11-02', 4), alcoholDrinks: 2 }, night('2026-11-03', 2), { ...night('2026-11-05', 3), alcoholDrinks: 1 }, { ...night('2026-11-06', 3), alcoholDrinks: 0 }]
     const coffee = (d: string, hm: string): CaffeineLog => ({ ...base, id: d + hm, date: d, at: at(d, hm), drinkKey: 'x', label: 'Espresso', mg: 63 })
     input.caffeine = [coffee('2026-11-03', '09:00'), coffee('2026-11-03', '15:00'), coffee('2026-11-04', '16:00')]
     const w = summarizeWeek('2026-11-02', input, profile, P, END_OF_WEEK)
@@ -53,7 +53,7 @@ describe('weekly summary', () => {
     expect(w.daysElapsed).toBe(7)
     expect(w.totals.cardioModerateEqMin).toBe(210)
     expect(w.restKept).toBe(false)
-    expect(w.sleep).toMatchObject({ nightsLogged: 2, avgMin: 480, avgQuality: 3, lateCaffeineDays: 2 })
+    expect(w.sleep).toMatchObject({ nightsLogged: 4, avgMin: 480, avgQuality: 3, lateCaffeineDays: 2, alcoholNights: 2, alcoholDrinks: 3 })
     expect(w.caffeine.avgMgPerDay).toBe(27)
   })
   it('suggests an earlier last drink after 3 late-caffeine days', () => {

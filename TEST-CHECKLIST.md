@@ -1,6 +1,6 @@
 # Brain Health: phone test checklist
 
-Tick as you go. Items marked 📱 can only be checked on the real phone. Last updated for Build 13 (v0.10.0).
+Tick as you go. Items marked 📱 can only be checked on the real phone. Last updated for Build 14 (v0.11.0).
 
 ## 0. Install
 - [ ] APK installs over the old app and your data is still there
@@ -8,7 +8,22 @@ Tick as you go. Items marked 📱 can only be checked on the real phone. Last up
 - [ ] 📱 New brain icon on the home screen and in the app drawer
 - [ ] Settings → Import with Claude still shows your key (moved into the app's database, no need to paste it again)
 
-## New in Build 13: all exercise drawings
+## New in Build 14: cardio 300 / 600, mountain bike up/down, log by voice, alcohol
+- [ ] Home → Cardio this week now shows Floor 300 and Target 600 (Settings → cardio floor/target says 300 and 600; you can still change them)
+- [ ] Home → Log activity → Mountain biking: climbing and descending each have minutes, intensity (both start vigorous) and an effort slider (8 and 6); "Ride total" adds them up
+- [ ] Log a ride of 45 min up and 30 min down: Home and Train show "45 min up, 30 min down" (or "Mountain biking 1 h 15 min (45 min up, 30 min down)" on the Train chips); it counts as one ride, and cardio goes up by 150 (both parts count double)
+- [ ] Switch the descent to Moderate, save, reopen with Edit: the split is kept and cardio counts that part once
+- [ ] Turn off "Split into climbing and descending": the old single-length form comes back; an older ride you logged before opens unsplit
+- [ ] Log activity → Say it instead: tap the microphone on your keyboard and say "pickleball two hours yesterday". A card shows what was understood (activity, day, length, intensity); Log it saves it, Change details opens the normal form filled in
+- [ ] Try "mountain bike 45 minutes up and 30 down Saturday" and "pickleball 90 minutes moderate at 5 pm". Note any sentence it gets wrong or doesn't understand
+- [ ] 📱 If it says it didn't catch something, the message tells you what to add; nothing is saved until you tap Log it
+- [ ] Settings → export CSV has two new columns, climb_min and descent_min
+- [ ] Sleep → a night's log has "Alcoholic drinks that evening" with 0 selected; pick 2 and save
+- [ ] That night in Recent nights (and Last night, if it's last night) says "2 drinks"; nights with 0 say nothing
+- [ ] Week → Sleep and caffeine shows "Nights with alcohol" with the count and total drinks
+- [ ] Older nights open with 0 drinks and save fine
+
+## Build 13: all exercise drawings
 - [ ] Every exercise's ⓘ now shows a drawing for every step (no "no drawing" message on any of the 16)
 - [ ] Workout A: Chin-up (band pulldown kneeling, negatives lower slowly, chin-up), Single-leg RDL (wall, free, dumbbell), Overhead press (pike, dumbbell), Hamstring curl (both legs, one leg up), Side plank (knees, full), Calf raise (on a step, hand on the wall)
 - [ ] Workout B: Row (band seated, dumbbell with a hand on a chair), Push-up or floor press (counter, floor, lying press), Hip thrust (bridge, one leg, shoulders on the couch), Lateral raise (front view), Face pull (band, prone Y), Plank (plank, long plank), Pallof press

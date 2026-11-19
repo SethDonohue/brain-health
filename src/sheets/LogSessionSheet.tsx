@@ -1,41 +1,52 @@
 import { format } from 'date-fns'
 import { useMemo, useState } from 'react'
-import { db } from '../db/db'
-import { addCustomActivity, deleteSession, logSession, updateSession } from '../db/repo'
+import { ridePartsText } from '../domain/cardio'
+import { addCustomActivity, deleteSession, logSession, openPlannedFor, updateSession } from '../db/repo'
 import { addDaysKey, formatDuration, formatTime, hmToMinutes, atMinutes, todayKey } from '../domain/dates'
 import { cutoffsFor } from '../domain/sleepTimes'
-import type { ActivityKey, Intensity, PlannedSession, Profile, ProtocolVersion, SessionLog } from '../domain/types'
+import type { ActivityKey, Intensity, PlannedSession, Profile, ProtocolVersion, RidePart, SessionLog } from '../domain/types'
+import type { VoiceDraft } from '../domain/voice'
 import { displayToMeters, distanceUnit, fmt, metersToDisplay } from '../domain/units'
 import { activityOf, countsAsHard, targetOf, useProfile, useProtocol } from '../hooks'
 import { useUi } from '../store'
 import { Button, cx, Field, IntensityPicker, Sheet, Stepper, Toggle } from '../ui/primitives'
 
 const BUILTIN: ActivityKey[] = ['pickleball', 'strength', 'mtb', 'bike_commute']
+const HARDNESS: Record<Intensity, number> = { light: 0, moderate: 1, vigorous: 2 }
+const harder = (a: Intensity, b: Intensity): Intensity => (HARDNESS[a] >= HARDNESS[b] ? a : b)
+/** A new ride starts as roughly 60% climbing, 40% descending, in 5-minute steps. */
+const splitTotal = (total: number): [number, number] => {
+  const climb = Math.max(5, Math.round((total * 0.6) / 5) * 5)
+  return [climb, Math.max(0, total - climb)]
+}
 
-export function LogSessionSheet({ planned, activity, edit }: { planned?: PlannedSession; activity?: ActivityKey; edit?: SessionLog }) {
+export function LogSessionSheet({ planned, activity, edit, prefill }: { planned?: PlannedSession; activity?: ActivityKey; edit?: SessionLog; prefill?: VoiceDraft }) {
   const profile = useProfile()
   const protocol = useProtocol()
   if (!profile || !protocol) return null
-  return <Form planned={planned} activity={activity} edit={edit} profile={profile} protocol={protocol} />
+  return <Form planned={planned} activity={activity} edit={edit} prefill={prefill} profile={profile} protocol={protocol} />
 }
 
 function Form({
   planned,
   activity,
   edit,
+  prefill,
   profile,
   protocol,
 }: {
   planned?: PlannedSession
   activity?: ActivityKey
   edit?: SessionLog
+  prefill?: VoiceDraft
   profile: Profile
   protocol: ProtocolVersion
 }) {
   const close = useUi((s) => s.close)
+  const openSheet = useUi((s) => s.open)
   const toast = useUi((s) => s.showToast)
 
-  const initialType: ActivityKey = edit?.activityType ?? planned?.activityType ?? activity ?? 'pickleball'
+  const initialType: ActivityKey = edit?.activityType ?? planned?.activityType ?? prefill?.activityType ?? activity ?? 'pickleball'
   const durationFor = (k: ActivityKey) => {
     if (k === 'bike_commute') return profile.commuteDefaultMin
     const t = targetOf(protocol, k)
@@ -43,16 +54,21 @@ function Form({
   }
 
   const [type, setType] = useState<ActivityKey>(initialType)
-  const [date, setDate] = useState(edit?.date ?? planned?.date ?? todayKey())
-  const [duration, setDuration] = useState(edit?.durationMin ?? planned?.durationMin ?? durationFor(initialType))
+  const [date, setDate] = useState(edit?.date ?? planned?.date ?? prefill?.date ?? todayKey())
+  const [duration, setDuration] = useState(edit?.durationMin ?? planned?.durationMin ?? prefill?.durationMin ?? durationFor(initialType))
   const defaultStart = () => {
     const d = new Date(Date.now() - duration * 60_000)
     return format(d, 'HH:mm')
   }
-  const [start, setStart] = useState(edit ? format(edit.startAt, 'HH:mm') : (planned?.startTime ?? defaultStart()))
-  const [intensity, setIntensity] = useState<Intensity>(edit?.intensity ?? activityOf(protocol, initialType)!.defaultIntensity)
-  const [useRpe, setUseRpe] = useState(edit?.rpe != null)
-  const [rpe, setRpe] = useState(edit?.rpe ?? 6)
+  const [start, setStart] = useState(edit ? format(edit.startAt, 'HH:mm') : (planned?.startTime ?? prefill?.startHm ?? defaultStart()))
+  const [intensity, setIntensity] = useState<Intensity>(edit?.intensity ?? prefill?.intensity ?? activityOf(protocol, initialType)!.defaultIntensity)
+  const [useRpe, setUseRpe] = useState((edit?.rpe ?? prefill?.rpe) != null)
+  const [rpe, setRpe] = useState(edit?.rpe ?? prefill?.rpe ?? 6)
+  // Mountain biking: one ride in two parts. Old rides (and rides logged as a whole) stay unsplit.
+  const [split, setSplit] = useState(edit ? !!edit.parts : prefill ? !!prefill.parts : true)
+  const startTotal = edit?.durationMin ?? planned?.durationMin ?? prefill?.durationMin ?? durationFor(initialType)
+  const [climb, setClimb] = useState<RidePart>(edit?.parts?.climb ?? prefill?.parts?.climb ?? { min: splitTotal(startTotal)[0], intensity: 'vigorous', rpe: 8 })
+  const [descent, setDescent] = useState<RidePart>(edit?.parts?.descent ?? prefill?.parts?.descent ?? { min: splitTotal(startTotal)[1], intensity: 'vigorous', rpe: 6 })
   const [distance, setDistance] = useState(edit?.distanceM != null ? fmt(metersToDisplay(edit.distanceM, profile.units)) : '')
   const [note, setNote] = useState(edit?.note ?? '')
 
@@ -76,9 +92,12 @@ function Form({
     return [...set]
   }, [protocol, type])
 
+  const isSplit = type === 'mtb' && split
+  const total = isSplit ? climb.min + descent.min : duration
+  const logIntensity = isSplit ? harder(climb.intensity, descent.intensity) : intensity
   const startAt = atMinutes(date, hmToMinutes(start))
-  const endAt = startAt + duration * 60_000
-  const isIntense = countsAsHard(activityOf(protocol, type), intensity)
+  const endAt = startAt + total * 60_000
+  const isIntense = countsAsHard(activityOf(protocol, type), logIntensity)
   const cutoff = cutoffsFor(date, profile, protocol.sleepRules).exerciseCutoff
   // Distance for rides and for the user's own activities (a hike, a run).
   const isBike = type === 'bike_commute' || type === 'mtb' || type.startsWith('custom_')
@@ -89,9 +108,10 @@ function Form({
       date,
       activityType: type,
       startAt,
-      durationMin: duration,
-      intensity,
-      rpe: useRpe ? rpe : undefined,
+      durationMin: total,
+      intensity: logIntensity,
+      rpe: !isSplit && useRpe ? rpe : undefined,
+      parts: isSplit ? { climb: cleanPart(climb), descent: cleanPart(descent) } : undefined,
       distanceM,
       note: note.trim() || undefined,
     }
@@ -101,18 +121,12 @@ function Form({
       // Link to the matching planned session that day so it shows as done.
       let plannedSessionId = planned?.id
       if (!plannedSessionId || planned?.activityType !== type) {
-        plannedSessionId = undefined
-        const candidates = await db.plannedSessions.where('date').equals(date).toArray()
-        const logs = await db.sessionLogs.where('date').equals(date).toArray()
-        const open = candidates.find(
-          (p) => !p.deletedAt && p.activityType === type && !logs.some((l) => !l.deletedAt && l.plannedSessionId === p.id),
-        )
-        plannedSessionId = open?.id
+        plannedSessionId = await openPlannedFor(date, type)
       }
       await logSession({ ...fields, plannedSessionId })
     }
     close()
-    toast({ message: `${label} ${edit ? 'updated' : 'logged'}, ${formatDuration(duration)} ${intensity}` })
+    toast({ message: `${label} ${edit ? 'updated' : 'logged'}, ${isSplit ? ridePartsText({ parts: { climb, descent } }, formatDuration) : `${formatDuration(total)} ${logIntensity}`}` })
   }
 
   const remove = async () => {
@@ -131,6 +145,18 @@ function Form({
 
   return (
     <Sheet title={edit ? 'Edit activity' : 'Log activity'}>
+      {!planned && !edit && !prefill && (
+        <Button
+          variant="outline"
+          className="mb-4 w-full"
+          onClick={() => {
+            close()
+            openSheet({ kind: 'voiceLog' })
+          }}
+        >
+          Say it instead
+        </Button>
+      )}
       {!planned && !edit && (
         <Field label="Activity">
           <div className="grid grid-cols-2 gap-2">
@@ -166,6 +192,18 @@ function Form({
         </Field>
       )}
 
+      {type === 'mtb' && (
+        <Toggle label="Split into climbing and descending" checked={split} onChange={setSplit} />
+      )}
+
+      {isSplit ? (
+        <>
+          <RidePartField title="Climbing" part={climb} onChange={setClimb} hint="Really hard effort, counts double toward cardio." />
+          <RidePartField title="Descending" part={descent} onChange={setDescent} hint="Still vigorous, but less effort. Change it to moderate if it feels easier." />
+          <p className="num text-sm text-ink-2">Ride total: {formatDuration(total)}</p>
+        </>
+      ) : (
+        <>
       <Field label="Duration">
         <Stepper label="duration" value={duration} step={5} min={5} max={600} onChange={setDuration} format={formatDuration} />
         <div className="mt-2 flex flex-wrap gap-2">
@@ -184,6 +222,8 @@ function Form({
       <Field label="Intensity" hint={type === 'strength' ? 'Strength counts toward total exercise, not cardio.' : 'Vigorous minutes count double toward cardio.'}>
         <IntensityPicker value={intensity} onChange={setIntensity} />
       </Field>
+        </>
+      )}
 
       <Field label="When">
         <div className="flex flex-wrap gap-2">
@@ -232,6 +272,7 @@ function Form({
         </Field>
       )}
 
+      {!isSplit && (
       <Field label="Effort (RPE 1–10), optional">
         {useRpe ? (
           <div className="flex items-center gap-3">
@@ -247,6 +288,7 @@ function Form({
           </button>
         )}
       </Field>
+      )}
 
       <Field label="Note">
         <input
@@ -263,7 +305,7 @@ function Form({
             Delete
           </Button>
         )}
-        <Button onClick={save} className="flex-1">
+        <Button onClick={save} className="flex-1" disabled={total < 5}>
           {edit ? 'Save changes' : `Log ${label.toLowerCase()}`}
         </Button>
       </div>
@@ -271,6 +313,35 @@ function Form({
   )
 }
 
+
+/** Drops an empty effort so the saved part only holds what was set. */
+const cleanPart = (p: RidePart): RidePart => ({ min: p.min, intensity: p.intensity, ...(p.rpe != null ? { rpe: p.rpe } : {}) })
+
+function RidePartField({ title, part, onChange, hint }: { title: string; part: RidePart; onChange: (p: RidePart) => void; hint: string }) {
+  return (
+    <Field label={title} hint={hint}>
+      <Stepper label={`${title.toLowerCase()} minutes`} value={part.min} step={5} min={0} max={300} onChange={(min) => onChange({ ...part, min })} format={formatDuration} />
+      <div className="mt-2">
+        <IntensityPicker label={`${title} intensity`} value={part.intensity} onChange={(intensity) => onChange({ ...part, intensity })} />
+      </div>
+      <div className="mt-2">
+        {part.rpe != null ? (
+          <div className="flex items-center gap-3">
+            <input type="range" min={1} max={10} value={part.rpe} onChange={(e) => onChange({ ...part, rpe: Number(e.target.value) })} className="h-12 flex-1" aria-label={`${title} effort`} />
+            <span className="num w-8 text-2xl font-semibold">{part.rpe}</span>
+            <button className="min-h-11 px-2 text-sm text-ink-2" onClick={() => onChange({ ...part, rpe: undefined })}>
+              Clear
+            </button>
+          </div>
+        ) : (
+          <button className="min-h-11 rounded-full border border-line px-4 text-sm text-ink-2" onClick={() => onChange({ ...part, rpe: title === 'Climbing' ? 8 : 6 })}>
+            Add effort
+          </button>
+        )}
+      </div>
+    </Field>
+  )
+}
 
 function NewActivityForm({
   existing,

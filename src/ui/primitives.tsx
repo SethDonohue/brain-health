@@ -98,10 +98,10 @@ export function Segmented<T extends string>({
 export const intensityColor = (i: Intensity) =>
   i === 'vigorous' ? 'var(--vigorous)' : i === 'moderate' ? 'var(--moderate)' : 'var(--light)'
 
-export function IntensityPicker({ value, onChange }: { value: Intensity; onChange: (i: Intensity) => void }) {
+export function IntensityPicker({ value, onChange, label = 'Intensity' }: { value: Intensity; onChange: (i: Intensity) => void; label?: string }) {
   return (
     <Segmented
-      label="Intensity"
+      label={label}
       value={value}
       onChange={onChange}
       colorFor={intensityColor}

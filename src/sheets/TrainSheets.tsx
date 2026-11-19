@@ -3,6 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useState } from 'react'
 import { db } from '../db/db'
 import { addPlanned, alive, removePlanned, resetPlanned, setPlannedTime, skipPlanned, startStrength } from '../db/repo'
+import { ridePartsText } from '../domain/cardio'
 import { DEMOS, videoUrl } from '../domain/demos'
 import { formatDuration, formatTimeRange, fromDateKey, weekStartOf } from '../domain/dates'
 import { plannedStatus } from '../domain/plan'
@@ -153,7 +154,7 @@ export function PlannedSheet({ planned: initial }: { planned: PlannedSession }) 
         ) : status === 'done' && done ? (
           <>
             <p className="text-ink-2">
-              Done: {done.durationMin} min, {done.intensity}.
+              Done: {done.parts ? ridePartsText(done, (m) => `${m} min`) : `${done.durationMin} min, ${done.intensity}`}.
             </p>
             <Button variant="outline" onClick={then(() => open({ kind: 'log', edit: done }))}>
               Edit log

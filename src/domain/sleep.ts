@@ -72,3 +72,7 @@ export function moveTab(order: TabKey[], tab: TabKey, delta: -1 | 1): TabKey[] {
   ;[next[i], next[j]] = [next[j], next[i]]
   return next
 }
+
+/** Alcoholic drinks on the sleep log: 0 to 5, then 6 meaning "6 or more". */
+export const ALCOHOL_MAX = 6
+export const drinksText = (n: number) => `${n >= ALCOHOL_MAX ? `${ALCOHOL_MAX}+` : n} drink${n === 1 ? '' : 's'}`

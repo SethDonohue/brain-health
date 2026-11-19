@@ -42,8 +42,8 @@ export const defaultProfile = (): Profile => ({
   bedtimeByWeekday: {},
   wakeDefault: '07:00',
   restDay: 7,
-  cardioFloorMin: 150,
-  cardioTargetMin: 300,
+  cardioFloorMin: 300,
+  cardioTargetMin: 600,
   commuteDefaultMin: 20,
   wineEnabled: false,
   restTimerSec: 90,
@@ -51,7 +51,7 @@ export const defaultProfile = (): Profile => ({
   onboarded: false,
   tabOrder: [...DEFAULT_TAB_ORDER],
   // a new phone starts from the current seed, so past app updates don't apply
-  appliedUpdates: ['home_strength_ab'],
+  appliedUpdates: ['home_strength_ab', 'cardio_300_600'],
   updatedAt: now(),
 })
 
@@ -74,8 +74,16 @@ export async function ensureSeed(d: BrainHealthDB = db): Promise<void> {
  * Changes an app update makes once to this phone's saved protocol, as a new version (earlier weeks keep theirs).
  * "home_strength_ab" (v0.8.0): the home A/B strength workouts, 50–60 min sessions, pickleball 3 a week on
  * Mon/Wed/Thu, and mountain biking every other week starting this week.
+ * "cardio_300_600" (v0.11.0): cardio floor 300 and target 600 moderate-equivalent minutes a week (still editable in Settings).
  */
 async function applyAppUpdates(d: BrainHealthDB) {
+  await applyHomeStrengthUpdate(d)
+  const profile = await getProfile(d)
+  const done = new Set(profile.appliedUpdates ?? [])
+  if (!done.has('cardio_300_600')) await updateProfile({ cardioFloorMin: 300, cardioTargetMin: 600, appliedUpdates: [...done, 'cardio_300_600'] }, d)
+}
+
+async function applyHomeStrengthUpdate(d: BrainHealthDB) {
   const profile = await getProfile(d)
   const done = new Set(profile.appliedUpdates ?? [])
   if (done.has('home_strength_ab')) return
@@ -201,6 +209,15 @@ export interface LogSessionInput {
   note?: string
   status?: SessionLog['status']
   workoutDay?: string
+  /** mountain bike only: climbing and descending parts of the ride */
+  parts?: SessionLog['parts']
+}
+
+/** The open planned session of this type on this day (not yet logged), so a new log shows it as done. */
+export async function openPlannedFor(date: string, activityType: ActivityKey, d: BrainHealthDB = db): Promise<string | undefined> {
+  const candidates = await d.plannedSessions.where('date').equals(date).toArray()
+  const logs = await d.sessionLogs.where('date').equals(date).toArray()
+  return candidates.find((p) => !p.deletedAt && p.activityType === activityType && !logs.some((l) => !l.deletedAt && l.plannedSessionId === p.id))?.id
 }
 
 export async function logSession(input: LogSessionInput, d: BrainHealthDB = db): Promise<string> {
@@ -300,7 +317,7 @@ export { toDateKey }
 // ---------- Sleep ----------
 
 export async function saveSleepLog(
-  input: { night: string; bedAt: number; wakeAt: number; quality: SleepLog['quality']; note?: string },
+  input: { night: string; bedAt: number; wakeAt: number; quality: SleepLog['quality']; note?: string; alcoholDrinks?: number },
   d: BrainHealthDB = db,
 ): Promise<string> {
   const existing = await d.sleepLogs.where('night').equals(input.night).first()

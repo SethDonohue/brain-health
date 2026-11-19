@@ -16,6 +16,7 @@ import { BedtimeSheet, DrinkEditSheet, DrinksSheet, SleepLogSheet } from './shee
 import { AddSessionSheet, ExerciseDemoSheet, ExerciseHistorySheet, PlannedSheet } from './sheets/TrainSheets'
 import { EditMealsSheet, EditTargetsSheet, MindAboutSheet } from './sheets/EatSheets'
 import { ImportSheet } from './sheets/ImportSheet'
+import { VoiceLogSheet } from './sheets/VoiceSheet'
 import { useUi, type Tab } from './store'
 import { onShared } from './ai/shareIn'
 import { autoBackupIfDue, shareFullBackup, shouldNudgeShare } from './db/autoBackup'
@@ -140,6 +141,7 @@ export default function App() {
       </div>
 
       {top?.kind === 'log' && <LogSessionSheet key={sheets.length} planned={top.planned} activity={top.activity} edit={top.edit} />}
+      {top?.kind === 'voiceLog' && <VoiceLogSheet key={sheets.length} />}
       {top?.kind === 'move' && <MoveSheet planned={top.planned} />}
       {top?.kind === 'restPick' && <RestPickSheet weekStart={top.weekStart} candidates={top.candidates} />}
       {top?.kind === 'settings' && <SettingsSheet />}

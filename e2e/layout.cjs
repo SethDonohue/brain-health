@@ -26,11 +26,25 @@ const SCHEMES = QUICK ? ['light'] : ['light', 'dark']
 const INSETS = { top: 32, bottom: 48 }
 
 const TABS = ['Home', 'Sleep', 'Eat', 'Train', 'Week']
-// [tab, button name regex, label]. Missing triggers are reported, not fatal.
+// [tab, button name regex, label, optional steps to run once it is open]. Missing triggers are reported, not fatal.
+const inDialog = (p, re) => p.locator('[role="dialog"]').getByRole('button', { name: re }).first()
 const SHEETS = [
   ['Home', /^Log activity$/, 'log-activity'],
+  // a mountain bike ride logged in two parts (climbing and descending)
+  ['Home', /^Log activity$/, 'log-mtb-split', async (p) => {
+    await inDialog(p, /^Mountain biking$/).click({ force: true })
+    await p.waitForTimeout(250)
+  }],
+  // the voice box with a sentence typed in, so the preview card is checked at its longest
+  ['Home', /^Log activity$/, 'voice-log', async (p) => {
+    await inDialog(p, /^Say it instead$/).click({ force: true })
+    await p.waitForTimeout(250)
+    await p.locator('#voice-text').fill('mountain bike 45 minutes up and 30 down on Saturday at 5 pm')
+    await p.waitForTimeout(250)
+  }],
   ['Home', /^Settings$/, 'settings'],
   ['Sleep', /^Bedtime/, 'bedtime'],
+  ['Sleep', /^Enter bed and wake times$/, 'sleep-log'],
   ['Sleep', /Edit drinks and amounts/, 'drinks'],
   ['Eat', /^Edit my targets$/, 'edit-targets'],
   ['Eat', /^About these bands$/, 'mind-about'],
@@ -257,7 +271,7 @@ async function run() {
             if (fc) note(c, 'footer-clearance', fc)
             if (scale === 100 || scale === 200 || process.env.SHOTS) await p.screenshot({ path: path.join(OUT, `${scheme}-${width}-${scale}-${tab}.png`) })
           }
-          for (const [tab, re, name] of SHEETS) {
+          for (const [tab, re, name, steps] of SHEETS) {
             await goTab(p, tab)
             const b = p.getByRole('button', { name: re }).first()
             if (!(await b.count())) {
@@ -267,6 +281,7 @@ async function run() {
             await b.scrollIntoViewIfNeeded().catch(() => {})
             await b.click({ timeout: 3000, force: true }).catch(() => {})
             await p.waitForTimeout(300)
+            if (steps) await steps(p).catch((e) => note(`${tag} / sheet ${name}`, 'harness-error', String(e.message).split('\n')[0]))
             const c = `${tag} / sheet ${name}`
             for (const [kind, detail] of await p.evaluate(inspect, {})) note(c, kind, detail)
             if (scale === 100 || scale === 200 || process.env.SHOTS) await p.screenshot({ path: path.join(OUT, `${scheme}-${width}-${scale}-sheet-${name}.png`) })

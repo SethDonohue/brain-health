@@ -107,6 +107,9 @@ export interface WeekSummary {
     checklistPct?: number
     lateCaffeineDays: number
     lateExerciseNights: number
+    /** nights with at least one alcoholic drink, and the drinks on them (6+ counted as 6) */
+    alcoholNights: number
+    alcoholDrinks: number
   }
   caffeine: { avgMgPerDay: number; daysWithCaffeine: number }
 }
@@ -163,6 +166,8 @@ export function summarizeWeek(weekStart: string, input: WeekInput, profile: Prof
       checklistPct: nights.length ? Math.round((ticks / (items * nights.length)) * 100) : undefined,
       lateCaffeineDays,
       lateExerciseNights,
+      alcoholNights: logs.filter((l) => (l.alcoholDrinks ?? 0) > 0).length,
+      alcoholDrinks: logs.reduce((a, l) => a + (l.alcoholDrinks ?? 0), 0),
     },
     caffeine: { avgMgPerDay: Math.round(mg / daysElapsed), daysWithCaffeine: new Set(caffeineInWeek.map((c) => c.date)).size },
   }

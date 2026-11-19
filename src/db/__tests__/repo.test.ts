@@ -181,3 +181,69 @@ describe('app updates', () => {
     expect((await currentProtocol(d)).version).toBe(4) // only once
   })
 })
+
+describe('cardio targets 300 / 600 (v0.11.0)', () => {
+  it('new phones start at 300 / 600', async () => {
+    const { getProfile } = await import('../repo')
+    const d = new BrainHealthDB('cardio-new')
+    await ensureSeed(d)
+    expect(await getProfile(d)).toMatchObject({ cardioFloorMin: 300, cardioTargetMin: 600 })
+  })
+  it('an existing phone at 150 / 300 is moved once, and later edits stay', async () => {
+    const { defaultProfile, getProfile, updateProfile } = await import('../repo')
+    const d = new BrainHealthDB('cardio-old')
+    await ensureSeed(d)
+    await d.profile.put({ ...defaultProfile(), cardioFloorMin: 150, cardioTargetMin: 300, appliedUpdates: ['home_strength_ab'] })
+    await ensureSeed(d)
+    expect(await getProfile(d)).toMatchObject({ cardioFloorMin: 300, cardioTargetMin: 600 })
+    await updateProfile({ cardioFloorMin: 240, cardioTargetMin: 480 }, d)
+    await ensureSeed(d)
+    expect(await getProfile(d)).toMatchObject({ cardioFloorMin: 240, cardioTargetMin: 480 })
+  })
+})
+
+describe('mountain bike rides in two parts', () => {
+  const part = (min: number, intensity: 'light' | 'moderate' | 'vigorous', rpe?: number) => ({ min, intensity, ...(rpe != null ? { rpe } : {}) })
+
+  it('one split ride is one session; each part counts by its own intensity', async () => {
+    const { weekTotals } = await import('../../domain/cardio')
+    const { protocolV1 } = await import('../../domain/protocol.v1')
+    const d = new BrainHealthDB('mtb-parts')
+    await ensureSeed(d)
+    await logSession({ date: '2026-11-07', activityType: 'mtb', startAt: 1, durationMin: 75, intensity: 'vigorous', parts: { climb: part(45, 'vigorous', 8), descent: part(30, 'vigorous', 6) } }, d)
+    const logs = await sessionsInRange('2026-11-02', '2026-11-08', d)
+    const t = weekTotals(logs, protocolV1.activityTypes)
+    expect(t.sessionsByType.mtb).toBe(1)
+    expect(t.totalExerciseMin).toBe(75)
+    expect(t.vigorousMin).toBe(75)
+    expect(t.cardioModerateEqMin).toBe(150)
+    // an easier descent counts as moderate
+    const easier = weekTotals([{ ...logs[0], parts: { climb: part(45, 'vigorous'), descent: part(30, 'moderate') } }], protocolV1.activityTypes)
+    expect(easier).toMatchObject({ vigorousMin: 45, moderateMin: 30, cardioModerateEqMin: 120 })
+  })
+
+  it('old rides without parts count exactly as before and the parts survive a backup', async () => {
+    const { weekTotals, ridePartsText } = await import('../../domain/cardio')
+    const { protocolV1 } = await import('../../domain/protocol.v1')
+    const { buildBackup, restoreBackup, sessionsCsv } = await import('../backup')
+    const d = new BrainHealthDB('mtb-backup')
+    await ensureSeed(d)
+    await logSession({ date: '2026-11-07', activityType: 'mtb', startAt: 1, durationMin: 40, intensity: 'vigorous' }, d)
+    await logSession({ date: '2026-11-08', activityType: 'mtb', startAt: 2, durationMin: 75, intensity: 'vigorous', parts: { climb: part(45, 'vigorous', 8), descent: part(30, 'vigorous', 6) } }, d)
+    const logs = await sessionsInRange('2026-11-02', '2026-11-08', d)
+    expect(weekTotals([logs[0]], protocolV1.activityTypes).cardioModerateEqMin).toBe(80)
+    expect(ridePartsText(logs[0], (m) => `${m} min`)).toBeUndefined()
+    expect(ridePartsText(logs[1], (m) => `${m} min`)).toBe('45 min up, 30 min down')
+
+    const backup = JSON.parse(JSON.stringify(await buildBackup(d)))
+    const d2 = new BrainHealthDB('mtb-backup-2')
+    await restoreBackup(backup, d2)
+    const restored = await sessionsInRange('2026-11-02', '2026-11-08', d2)
+    expect(restored[1].parts).toEqual({ climb: part(45, 'vigorous', 8), descent: part(30, 'vigorous', 6) })
+    expect(restored[0].parts).toBeUndefined()
+
+    const csv = sessionsCsv(restored, protocolV1.activityTypes).split('\n')
+    expect(csv[0].endsWith('climb_min,descent_min')).toBe(true)
+    expect(csv[2].endsWith(',45,30')).toBe(true)
+  })
+})

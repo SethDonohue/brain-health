@@ -6,6 +6,23 @@ export const INTENSITY_FACTOR: Record<Intensity, number> = { light: 0, moderate:
 export const moderateEquivalent = (durationMin: number, intensity: Intensity): number =>
   durationMin * INTENSITY_FACTOR[intensity]
 
+/** A log as (minutes, intensity) pieces: a split ride gives its two parts, anything else gives itself. */
+export function logPieces(log: SessionLog): { min: number; intensity: Intensity }[] {
+  return log.parts
+    ? [
+        { min: log.parts.climb.min, intensity: log.parts.climb.intensity },
+        { min: log.parts.descent.min, intensity: log.parts.descent.intensity },
+      ].filter((x) => x.min > 0)
+    : [{ min: log.durationMin, intensity: log.intensity }]
+}
+
+/** Moderate-equivalent cardio minutes for one log (0 when it isn't a done cardio log is the caller's job). */
+export const logModerateEq = (log: SessionLog): number => logPieces(log).reduce((n, x) => n + moderateEquivalent(x.min, x.intensity), 0)
+
+/** The ride's two parts as the owner says it: "45 min up, 30 min down" (formatMin turns minutes into text). */
+export const ridePartsText = (log: Pick<SessionLog, 'parts'>, formatMin: (m: number) => string): string | undefined =>
+  log.parts ? `${formatMin(log.parts.climb.min)} up, ${formatMin(log.parts.descent.min)} down` : undefined
+
 export interface WeekTotals {
   totalExerciseMin: number
   moderateMin: number
@@ -31,10 +48,12 @@ export function weekTotals(logs: SessionLog[], activityTypes: ActivityType[]): W
     t.totalExerciseMin += log.durationMin
     t.sessionsByType[log.activityType] = (t.sessionsByType[log.activityType] ?? 0) + 1
     if (!byKey.get(log.activityType)?.isCardio) continue
-    if (log.intensity === 'moderate') t.moderateMin += log.durationMin
-    else if (log.intensity === 'vigorous') t.vigorousMin += log.durationMin
-    else t.lightMin += log.durationMin
-    t.cardioModerateEqMin += moderateEquivalent(log.durationMin, log.intensity)
+    for (const { min, intensity } of logPieces(log)) {
+      if (intensity === 'moderate') t.moderateMin += min
+      else if (intensity === 'vigorous') t.vigorousMin += min
+      else t.lightMin += min
+      t.cardioModerateEqMin += moderateEquivalent(min, intensity)
+    }
   }
   return t
 }

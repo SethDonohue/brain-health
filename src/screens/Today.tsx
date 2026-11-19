@@ -1,5 +1,5 @@
 import { format } from 'date-fns'
-import { weekTotals, type WeekTotals } from '../domain/cardio'
+import { ridePartsText, weekTotals, type WeekTotals } from '../domain/cardio'
 import { addDaysKey, formatDuration, formatTime, formatTimeRange, fromDateKey } from '../domain/dates'
 import { byTime, checkRestDay, intenseOnRestDay, plannedStatus, targetProgress } from '../domain/plan'
 import { cutoffsFor } from '../domain/sleepTimes'
@@ -358,7 +358,7 @@ function LogSummary({ log }: { log: SessionLog }) {
     <div className="flex items-center gap-2 text-sm">
       <span className="h-2.5 w-2.5 rounded-full" style={{ background: intensityColor(log.intensity) }} />
       <span>
-        {formatDuration(log.durationMin)}, {log.intensity}
+        {log.parts ? `${ridePartsText(log, formatDuration)}` : `${formatDuration(log.durationMin)}, ${log.intensity}`}
       </span>
       <span className="text-ink-3">{formatTime(log.startAt)}</span>
     </div>
