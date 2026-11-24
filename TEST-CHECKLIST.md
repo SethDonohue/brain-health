@@ -1,6 +1,6 @@
 # Brain Health: phone test checklist
 
-Tick as you go. Items marked 📱 can only be checked on the real phone. Last updated for Build 15 (v0.12.0).
+Tick as you go. Items marked 📱 can only be checked on the real phone. Last updated for Build 16 (v0.13.0).
 
 ## 0. Install
 - [ ] APK installs over the old app and your data is still there
@@ -8,7 +8,14 @@ Tick as you go. Items marked 📱 can only be checked on the real phone. Last up
 - [ ] 📱 New brain icon on the home screen and in the app drawer
 - [ ] Settings → Import with Claude still shows your key (moved into the app's database, no need to paste it again)
 
-## New in Build 15: voice logging understands start and end times
+## New in Build 16: booking import reads long screenshots
+- [ ] Share the long "My bookings" screenshot (or Train → Import bookings → pick it). The preview shows each booking's real time: Happy Hour 3:00 PM and Primetime 5:00 PM, 2 h each, on every booked day
+- [ ] Save it: on Tue 24 and Wed 25 the old wrong sessions (4:30–6:30 and 7:30–9:30) change to 3–5 PM and 5–7 PM instead of new ones being added next to them. If any day ends up with extra pickleball sessions, tap Undo in the toast and tell Claude
+- [ ] Import the same screenshot again: it says the sessions are already in your plan
+- [ ] A normal one-screen screenshot still imports as before
+- [ ] 📱 If a time can't be read, the preview leaves it blank instead of showing a wrong time
+
+## Build 15: voice logging understands start and end times
 - [ ] Log activity → Say it instead → say "pickleball from 2:45 p.m. to 6:15 p.m. yesterday". The card shows Pickleball, yesterday, 3 h 30 min, starting 2:45 PM
 - [ ] Try "between 2 and 4 pm", "2:45 until 6:15", "from noon to 2" and "11 pm to 1 am": each shows the right length and start time
 - [ ] Say am/pm only once ("from 2:45 to 6:15 pm"): it still works out 3 h 30 min

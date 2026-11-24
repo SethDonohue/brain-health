@@ -665,6 +665,17 @@ export async function applyImportedSessions(items: ImportedSession[], d: BrainHe
         outcomes.push('duplicate')
         continue
       }
+      // The same booking (same name, same day) imported before with another time: correct its time.
+      const retimed = it.note
+        ? same.find((p) => p.date === it.date && p.imported && !touched.has(p.id) && norm(p.note) === norm(it.note) && !sorted.some((o) => o !== it && o.date === it.date && o.startTime === p.startTime && norm(o.note) === norm(p.note)))
+        : undefined
+      if (retimed) {
+        change.before.push(retimed)
+        touched.add(retimed.id)
+        await d.plannedSessions.update(retimed.id, fields)
+        outcomes.push('updated')
+        continue
+      }
       const onDay = same.find((p) => p.date === it.date && !p.imported && !linked.has(p.id) && !touched.has(p.id))
       const elsewhere = same
         .filter((p) => p.date !== it.date && !p.imported && !linked.has(p.id) && !touched.has(p.id))
@@ -693,6 +704,7 @@ export async function applyImportedSessions(items: ImportedSession[], d: BrainHe
   return { change, outcomes }
 }
 
+const norm = (s?: string) => (s ?? '').trim().toLowerCase()
 const dayDiff = (a: string, b: string) => (Date.parse(a) - Date.parse(b)) / 864e5
 
 /* ---------- usual meals ---------- */

@@ -4,7 +4,7 @@ A personal Android app for following a brain-health protocol: exercise, sleep ha
 
 Single user, offline-first, no account. Everything is stored on the phone.
 
-> **Status:** Milestone 1 (M1) in progress. Current build: v0.12.0 (versionCode 15).
+> **Status:** Milestone 1 (M1) in progress. Current build: v0.13.0 (versionCode 16).
 > This is a personal project, not a medical device or medical advice.
 
 ## Features
@@ -57,7 +57,8 @@ Bookings, recipes and workouts can be imported from a screenshot, photo, PDF, te
 - Uses Anthropic's Claude API (model `claude-haiku-5-5`) with **your own API key**, entered in Settings.
 - The key is stored on the phone in a device-only database table. It is never included in backups.
 - Only the content you choose to import is sent. Every import shows an editable preview, and nothing is saved until you tap Save. Undo is available afterwards.
-- Imported booked sessions reuse planned sessions of the same activity, so weekly counts don't double.
+- Imported booked sessions reuse planned sessions of the same activity, so weekly counts don't double. Importing the same booking again with a different time corrects its time instead of adding a copy.
+- Long scrolling screenshots are cut into overlapping full-width strips (up to 20) so the text stays readable; Claude is told to leave out any time it can't read rather than guess.
 - This is the only network feature. Everything else works offline.
 
 ## Tech stack

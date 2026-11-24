@@ -95,6 +95,34 @@ describe('imported sessions', () => {
   })
 })
 
+describe('importing the same bookings again with corrected times', () => {
+  it('fixes the time of each booking instead of adding a second copy', async () => {
+    const d = new BrainHealthDB('i2')
+    await ensureSeed(d)
+    const day = (date: string, startTime: string, note: string) => ({ date, activityType: 'pickleball' as const, startTime, durationMin: 120, note })
+    // first import misread the times
+    await applyImportedSessions([day('2026-11-24', '16:30', 'Happy Hour Open Play'), day('2026-11-24', '19:30', 'Primetime Open Play')], d)
+    const fixed = await applyImportedSessions([day('2026-11-24', '15:00', 'Happy Hour Open Play'), day('2026-11-24', '17:00', 'Primetime Open Play')], d)
+    expect(fixed.outcomes).toEqual(['updated', 'updated'])
+    const pb = (await week(d, '2026-11-23')).filter((p) => p.date === '2026-11-24' && p.activityType === 'pickleball')
+    expect(pb.map((p) => p.startTime).sort()).toEqual(['15:00', '17:00'])
+    // undo puts the old times back
+    await undoPlanChange(fixed.change, d)
+    const back = (await week(d, '2026-11-23')).filter((p) => p.date === '2026-11-24' && p.activityType === 'pickleball')
+    expect(back.map((p) => p.startTime).sort()).toEqual(['16:30', '19:30'])
+  })
+  it('still adds a second booking on the same day with a different name', async () => {
+    const d = new BrainHealthDB('i3')
+    await ensureSeed(d)
+    const day = (startTime: string, note: string) => ({ date: '2026-11-24', activityType: 'pickleball' as const, startTime, durationMin: 120, note })
+    await applyImportedSessions([day('15:00', 'Happy Hour Open Play')], d)
+    const r = await applyImportedSessions([day('17:00', 'Primetime Open Play')], d)
+    expect(r.outcomes).not.toContain('duplicate')
+    const pb = (await week(d, '2026-11-23')).filter((p) => p.date === '2026-11-24' && p.imported)
+    expect(pb.map((p) => p.startTime).sort()).toEqual(['15:00', '17:00'])
+  })
+})
+
 describe('usual meals', () => {
   it('saves meals as a new protocol version', async () => {
     const d = new BrainHealthDB('m1')

@@ -81,6 +81,14 @@ async function callTool(key: string, system: string, content: Block[], tool: { n
 }
 
 function inputBlocks(input: SharedInput): Block[] {
+  if (input.kind === 'image' && input.strips && input.strips.length > 1)
+    return [
+      {
+        type: 'text',
+        text: `These ${input.strips.length} images are slices of one long scrolling screenshot, in order from top to bottom. Each slice overlaps the next a little, so an item cut at an edge appears whole in one of them. Treat them as one screenshot and list each item once.`,
+      },
+      ...input.strips.map((data) => ({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data } })),
+    ]
   if (input.kind === 'image') return [{ type: 'image', source: { type: 'base64', media_type: input.mime, data: input.base64 } }]
   if (input.kind === 'pdf') return [{ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: input.base64 } }]
   return [{ type: 'text', text: `<content>\n${input.text}\n</content>` }]
@@ -118,7 +126,15 @@ export function toSessionDrafts(raw: unknown, activities: ActivityType[], today:
   if (!parsed.success) throw new ImportError('Claude’s answer didn’t have the expected shape. Try again.')
   const keys = new Set(activities.map((a) => a.key))
   const fallback = activities.find((a) => a.key !== 'rest' && a.key !== 'strength')?.key ?? activities[0].key
-  return parsed.data.sessions.map((s) => {
+  // the same booking can be read twice where screenshot slices overlap
+  const seen = new Set<string>()
+  const unique = parsed.data.sessions.filter((s) => {
+    const k = [s.date, s.start_time ?? '', s.activity, (s.title ?? '').trim().toLowerCase()].join('|')
+    if (seen.has(k)) return false
+    seen.add(k)
+    return true
+  })
+  return unique.map((s) => {
     const start = s.start_time ?? undefined
     const dur = start && s.end_time ? (minutes(s.end_time) - minutes(start) + 1440) % 1440 : undefined
     const past = s.date < today
@@ -141,7 +157,7 @@ export async function extractSessions(key: string, input: SharedInput, activitie
     `Today is ${today}. When a date has no year, use the next occurrence on or after today.`,
     'Include only bookings or sessions the person is attending. Leave out cancelled ones.',
     'Ignore payment status, prices, buttons (Cancel, Details), category tags and navigation.',
-    'Use 24-hour HH:mm times. Leave a time out when it isn’t shown.',
+    'Use 24-hour HH:mm times. Leave a time out when it isn’t shown or you can’t read it clearly; never guess a time.',
     `Pick the activity from these keys: ${choices.map((a) => `${a.key} (${a.label})`).join(', ')}. Court sports such as open play, drop-in or round robin at a pickleball club are pickleball.`,
     'Title is the session name as shown, without the time.',
   ].join('\n')
@@ -262,6 +278,46 @@ export function mealFromDraft(d: MealDraft, existing: MealTemplate[]): MealTempl
 
 /** Long side of an image sent to the model; larger costs more and reads no better. */
 const MAX_SIDE = 1568
+/** Claude reads an image best at up to about 1.15 megapixels; bigger ones are scaled down on its side. */
+const MAX_PIXELS = 1_150_000
+/** Screenshots taller than this many times their width are cut into strips, so the text keeps its size. */
+const TALL = 2.5
+const MAX_STRIPS = 20
+const MIN_STRIP_WIDTH = 600
+
+export interface StripPlan {
+  /** width and height of the scaled image */
+  width: number
+  height: number
+  stripHeight: number
+  /** top edge of each strip, in scaled pixels */
+  tops: number[]
+}
+
+/**
+ * How to cut a tall scrolling screenshot into full-width strips that each stay readable:
+ * scale to at most 1092 px wide, strips of about 1.15 MP, overlapping by an eighth so a card cut at an
+ * edge is whole in the next strip. Narrows (down to 600 px) if needed to stay within 20 strips; null when
+ * the image isn't tall enough to need strips, 'too-long' when it can't fit even then.
+ */
+export function planStrips(width: number, height: number): StripPlan | null | 'too-long' {
+  if (height <= width * TALL) return null
+  for (let w = Math.min(width, 1092); w >= MIN_STRIP_WIDTH; w = Math.floor(w * 0.9)) {
+    const h = Math.round((height * w) / width)
+    const stripHeight = Math.min(MAX_SIDE, Math.floor(MAX_PIXELS / w), h)
+    const step = stripHeight - Math.round(stripHeight / 8)
+    const tops: number[] = []
+    for (let top = 0; ; top += step) {
+      if (top + stripHeight >= h) {
+        tops.push(Math.max(0, h - stripHeight))
+        break
+      }
+      tops.push(top)
+    }
+    if (tops.length <= MAX_STRIPS) return { width: w, height: h, stripHeight, tops }
+  }
+  return 'too-long'
+}
 
 export async function fileToInput(file: Blob & { name?: string }): Promise<SharedInput> {
   const name = file.name
@@ -271,9 +327,26 @@ export async function fileToInput(file: Blob & { name?: string }): Promise<Share
   throw new ImportError('That file type isn’t supported. Use a screenshot, photo, PDF or text file.')
 }
 
-async function shrinkImage(file: Blob): Promise<{ mime: string; base64: string }> {
+async function shrinkImage(file: Blob): Promise<{ mime: string; base64: string; strips?: string[] }> {
   try {
     const bmp = await createImageBitmap(file)
+    const plan = planStrips(bmp.width, bmp.height)
+    if (plan === 'too-long') throw new ImportError('That screenshot is too long to read in one go. Split it into two or three shorter screenshots.')
+    if (plan) {
+      const strips: string[] = []
+      for (const top of plan.tops) {
+        const canvas = document.createElement('canvas')
+        canvas.width = plan.width
+        canvas.height = plan.stripHeight
+        // source rows for this strip, at full resolution
+        const k = bmp.width / plan.width
+        canvas.getContext('2d')!.drawImage(bmp, 0, top * k, bmp.width, plan.stripHeight * k, 0, 0, plan.width, plan.stripHeight)
+        const blob = await new Promise<Blob>((ok, bad) => canvas.toBlob((b) => (b ? ok(b) : bad(new Error('encode'))), 'image/jpeg', 0.88))
+        strips.push(await blobToBase64(blob))
+      }
+      // the first strip doubles as the preview thumbnail
+      return { mime: 'image/jpeg', base64: strips[0], strips }
+    }
     const scale = Math.min(1, MAX_SIDE / Math.max(bmp.width, bmp.height))
     if (scale === 1 && file.size < 3_000_000 && /image\/(png|jpeg|webp|gif)/.test(file.type)) return { mime: file.type, base64: await blobToBase64(file) }
     const canvas = document.createElement('canvas')
@@ -282,7 +355,8 @@ async function shrinkImage(file: Blob): Promise<{ mime: string; base64: string }
     canvas.getContext('2d')!.drawImage(bmp, 0, 0, canvas.width, canvas.height)
     const blob = await new Promise<Blob>((ok, bad) => canvas.toBlob((b) => (b ? ok(b) : bad(new Error('encode'))), 'image/jpeg', 0.88))
     return { mime: 'image/jpeg', base64: await blobToBase64(blob) }
-  } catch {
+  } catch (e) {
+    if (e instanceof ImportError) throw e
     throw new ImportError('Couldn’t open that image. Try a screenshot in PNG or JPEG.')
   }
 }

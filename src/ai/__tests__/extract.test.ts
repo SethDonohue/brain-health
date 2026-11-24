@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { protocolV1 } from '../../domain/protocol.v1'
-import { extractMeal, extractSessions, ImportError, MODEL, sharedToInput, testKey, toMealDraft } from '../extract'
+import { extractMeal, extractSessions, ImportError, MODEL, planStrips, sharedToInput, testKey, toMealDraft, toSessionDrafts } from '../extract'
 
 const ok = (input: unknown) =>
   new Response(JSON.stringify({ content: [{ type: 'tool_use', id: 't', name: 'x', input }] }), { status: 200, headers: { 'content-type': 'application/json' } })
@@ -58,6 +58,52 @@ describe('session import', () => {
       throw new TypeError('network')
     }) as unknown as typeof fetch
     await expect(testKey('k', down)).rejects.toBeInstanceOf(ImportError)
+  })
+})
+
+describe('long screenshots', () => {
+  it('leaves an ordinary phone screenshot whole', () => {
+    expect(planStrips(1080, 2340)).toBeNull()
+    expect(planStrips(1080, 2700)).toBeNull()
+  })
+  it('cuts a long scrolling screenshot into readable, overlapping full-width strips', () => {
+    // the court app's "My bookings" capture: 1080 x 16,659. Shrunk whole it was 102 px wide and unreadable.
+    const plan = planStrips(1080, 16659)
+    if (!plan || plan === 'too-long') throw new Error('expected strips')
+    expect(plan.width).toBe(1080)
+    expect(plan.width * plan.stripHeight).toBeLessThanOrEqual(1_150_000)
+    expect(plan.tops.length).toBeLessThanOrEqual(20)
+    expect(plan.tops[0]).toBe(0)
+    expect(plan.tops.at(-1)! + plan.stripHeight).toBe(plan.height)
+    for (let i = 1; i < plan.tops.length; i++) {
+      const overlap = plan.tops[i - 1] + plan.stripHeight - plan.tops[i]
+      expect(overlap).toBeGreaterThan(0)
+    }
+  })
+  it('narrows a very long one to stay within 20 strips, and gives up past that', () => {
+    const plan = planStrips(1080, 30000)
+    if (!plan || plan === 'too-long') throw new Error('expected strips')
+    expect(plan.tops.length).toBeLessThanOrEqual(20)
+    expect(plan.width).toBeGreaterThanOrEqual(600)
+    expect(planStrips(1080, 80000)).toBe('too-long')
+  })
+  it('sends strips as one screenshot, and tells Claude not to guess times', async () => {
+    let body: { system: string; messages: { content: { type: string; text?: string }[] }[] } | undefined
+    const fetcher = (async (_u: string, init: RequestInit) => {
+      body = JSON.parse(String(init.body))
+      return ok({ sessions: [] })
+    }) as unknown as typeof fetch
+    await extractSessions('k', { kind: 'image', mime: 'image/jpeg', base64: 'A', strips: ['A', 'B', 'C'] }, protocolV1.activityTypes, '2026-11-24', fetcher)
+    const content = body!.messages[0].content
+    expect(content.filter((b) => b.type === 'image')).toHaveLength(3)
+    expect(content[0].text).toContain('slices of one long scrolling screenshot')
+    expect(body!.system).toContain('never guess a time')
+  })
+  it('lists a booking read twice in overlapping strips only once', () => {
+    const one = { date: '2026-11-24', start_time: '15:00', end_time: '17:00', activity: 'pickleball', title: 'Happy Hour Open Play' }
+    const two = { ...one, start_time: '17:00', end_time: '19:00', title: 'Primetime Open Play' }
+    const drafts = toSessionDrafts({ sessions: [one, two, { ...one }] }, protocolV1.activityTypes, '2026-11-24')
+    expect(drafts.map((d) => d.startTime)).toEqual(['15:00', '17:00'])
   })
 })
 
