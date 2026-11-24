@@ -57,7 +57,7 @@ export function VoiceLogSheet() {
         placeholder="Pickleball two hours yesterday"
         className="mt-1 w-full rounded-xl border border-line bg-surface px-3 py-2 text-lg"
       />
-      <p className="mt-1 text-sm text-ink-3">Tap the microphone on your keyboard and say it. Try “mountain bike 45 minutes up, 30 down, Saturday”.</p>
+      <p className="mt-1 text-sm text-ink-3">Tap the microphone on your keyboard and say it. Try “pickleball from 2:45 pm to 6:15 pm yesterday” or “mountain bike 45 minutes up, 30 down, Saturday”.</p>
 
       {result && !result.ok && <p className="mt-3 text-sm text-amber">{result.reason}</p>}
 

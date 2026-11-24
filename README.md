@@ -4,7 +4,7 @@ A personal Android app for following a brain-health protocol: exercise, sleep ha
 
 Single user, offline-first, no account. Everything is stored on the phone.
 
-> **Status:** Milestone 1 (M1) in progress. Current build: v0.11.0 (versionCode 14).
+> **Status:** Milestone 1 (M1) in progress. Current build: v0.12.0 (versionCode 15).
 > This is a personal project, not a medical device or medical advice.
 
 ## Features
@@ -14,7 +14,7 @@ Single user, offline-first, no account. Everything is stored on the phone.
 - Today's planned sessions, with booked times (for example 3–5 PM)
 - One-tap bike commute logging and a full "Log activity" form with intensity
 - Mountain bike rides can be split into climbing and descending (both vigorous by default, with their own effort), still one ride and one session
-- "Say it instead": type or dictate (with the keyboard's microphone) "pickleball two hours yesterday" and check a preview before it is saved; plain rules, no internet
+- "Say it instead": type or dictate (with the keyboard's microphone) "pickleball two hours yesterday" or "pickleball from 2:45 pm to 6:15 pm yesterday" (the length is worked out from the times) and check a preview before it is saved; plain rules, no internet
 - Custom activities (for example, hiking)
 - Cutoff times from your bedtime: caffeine, exercise and hot shower
 

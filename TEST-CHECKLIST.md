@@ -1,6 +1,6 @@
 # Brain Health: phone test checklist
 
-Tick as you go. Items marked 📱 can only be checked on the real phone. Last updated for Build 14 (v0.11.0).
+Tick as you go. Items marked 📱 can only be checked on the real phone. Last updated for Build 15 (v0.12.0).
 
 ## 0. Install
 - [ ] APK installs over the old app and your data is still there
@@ -8,7 +8,14 @@ Tick as you go. Items marked 📱 can only be checked on the real phone. Last up
 - [ ] 📱 New brain icon on the home screen and in the app drawer
 - [ ] Settings → Import with Claude still shows your key (moved into the app's database, no need to paste it again)
 
-## New in Build 14: cardio 300 / 600, mountain bike up/down, log by voice, alcohol
+## New in Build 15: voice logging understands start and end times
+- [ ] Log activity → Say it instead → say "pickleball from 2:45 p.m. to 6:15 p.m. yesterday". The card shows Pickleball, yesterday, 3 h 30 min, starting 2:45 PM
+- [ ] Try "between 2 and 4 pm", "2:45 until 6:15", "from noon to 2" and "11 pm to 1 am": each shows the right length and start time
+- [ ] Say am/pm only once ("from 2:45 to 6:15 pm"): it still works out 3 h 30 min
+- [ ] Saying a plain length ("two hours", "45 minutes") and "at 5 pm" still work as before
+- [ ] Note any sentence with times that it gets wrong or doesn't understand
+
+## Build 14: cardio 300 / 600, mountain bike up/down, log by voice, alcohol
 - [ ] Home → Cardio this week now shows Floor 300 and Target 600 (Settings → cardio floor/target says 300 and 600; you can still change them)
 - [ ] Home → Log activity → Mountain biking: climbing and descending each have minutes, intensity (both start vigorous) and an effort slider (8 and 6); "Ride total" adds them up
 - [ ] Log a ride of 45 min up and 30 min down: Home and Train show "45 min up, 30 min down" (or "Mountain biking 1 h 15 min (45 min up, 30 min down)" on the Train chips); it counts as one ride, and cardio goes up by 150 (both parts count double)

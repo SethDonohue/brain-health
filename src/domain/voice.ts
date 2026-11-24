@@ -3,7 +3,8 @@ import type { ActivityKey, ActivityType, Intensity, RidePart } from './types'
 
 /**
  * Turns a spoken (or typed) sentence into a draft activity, with plain rules and no internet.
- * "pickleball two hours moderate yesterday" or "mountain bike 45 minutes up and 30 down on Saturday".
+ * "pickleball two hours moderate yesterday", "pickleball from 2:45 pm to 6:15 pm yesterday"
+ * or "mountain bike 45 minutes up and 30 down on Saturday".
  * Anything it can't read is left out and the owner fixes it in the preview, so it never guesses a number.
  */
 export interface VoiceDraft {
@@ -124,6 +125,67 @@ export function parseStart(t: string): string | undefined {
   return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`
 }
 
+const TIME = `(noon|midnight|(\\d{1,2})(?:(?::|\\s)([0-5]\\d))?\\s*(a\\.?m\\b\\.?|p\\.?m\\b\\.?|o\\s?clock\\b)?)`
+
+interface SaidTime {
+  /** minutes after midnight, as said (12-hour clock unless a 13–23 hour was said) */
+  min: number
+  /** true when am/pm, noon/midnight or a 13–23 hour fixes the half of the day */
+  fixed: boolean
+  /** an hour with minutes or am/pm, not a bare number */
+  clear: boolean
+}
+
+function readTime(word: string | undefined, hStr: string | undefined, mStr: string | undefined, ap: string | undefined): SaidTime | undefined {
+  if (word === 'noon') return { min: 720, fixed: true, clear: true }
+  if (word === 'midnight') return { min: 0, fixed: true, clear: true }
+  let h = Number(hStr)
+  const m = mStr ? Number(mStr) : 0
+  if (h > 23) return undefined
+  const a = ap?.[0]
+  if (a === 'p' || a === 'a') {
+    if (h > 12) return undefined
+    if (a === 'p' && h < 12) h += 12
+    else if (a === 'a' && h === 12) h = 0
+    return { min: h * 60 + m, fixed: true, clear: true }
+  }
+  return { min: h * 60 + m, fixed: h > 12 || h === 0, clear: mStr != null || a === 'o' || h > 12 }
+}
+
+/** The ways an unfixed time could be meant: 3 → 3:00 or 15:00, 12 → noon or midnight. */
+const halves = (t: SaidTime): number[] => (t.fixed ? [t.min] : t.min >= 720 ? [t.min, t.min - 720] : [t.min, t.min + 720])
+const gap = (a: number, b: number) => (b - a + 1440) % 1440
+
+/**
+ * "from 2:45 pm to 6:15 pm", "between 2 and 4 pm", "2:45 until 6:15", "11 pm to 1 am".
+ * Returns the start ("HH:mm") and the length in minutes. A time missing am/pm takes the half of the day that
+ * makes the shortest sensible stretch; with no am/pm at all, a start from 1 to 7 is read as afternoon.
+ * Needs "from"/"between", or a time that's clearly a clock time (with minutes or am/pm), so "2 to 3" alone isn't taken.
+ */
+export function parseTimeRange(t: string): { startHm: string; durationMin: number } | undefined {
+  const re = new RegExp(`(\\bfrom\\s+|\\bbetween\\s+|\\bat\\s+)?${TIME}\\s*(?:to|till|til|until|through|thru|and)\\s+${TIME}`, 'g')
+  for (const m of t.matchAll(re)) {
+    const lead = m[1]?.trim()
+    if (/\band\b/.test(m[0].slice((m[1] ?? '').length)) && lead !== 'between') continue
+    const s = readTime(m[2], m[3], m[4], m[5])
+    const e = readTime(m[6], m[7], m[8], m[9])
+    if (!s || !e) continue
+    if (!(lead === 'from' || lead === 'between') && !s.clear && !e.clear) continue
+
+    let start: number
+    if (s.fixed) start = s.min
+    else if (e.fixed) start = halves(s).reduce((best, c) => (gap(c, e.min) > 0 && (gap(best, e.min) === 0 || gap(c, e.min) < gap(best, e.min)) ? c : best))
+    else start = s.min >= 60 && s.min < 8 * 60 ? s.min + 720 : s.min // 1–7 without am/pm: afternoon, like "at 4"
+    const end = halves(e).reduce((best, c) => (gap(start, c) > 0 && (gap(start, best) === 0 || gap(start, c) < gap(start, best)) ? c : best))
+    const durationMin = gap(start, end)
+    // same clock time twice ("from 3 to 3") isn't a stretch of time
+    if (durationMin === 0 || (durationMin >= 720 && !(s.fixed && e.fixed))) continue
+    const hm = `${String(Math.floor(start / 60)).padStart(2, '0')}:${String(start % 60).padStart(2, '0')}`
+    return { startHm: hm, durationMin }
+  }
+  return undefined
+}
+
 const BUILTIN_WORDS: Record<string, string[]> = {
   bike_commute: ['bike commute', 'bike to work', 'biked to work', 'biking to work', 'ride to work', 'rode to work', 'commute', 'commuted', 'commuting'],
   mtb: ['mountain biking', 'mountain bike', 'mountain biked', 'mtb', 'trail ride', 'trails'],
@@ -154,7 +216,16 @@ export function findActivities(t: string, activities: ActivityType[]): ActivityK
 }
 
 export function parseVoiceLog(raw: string, activities: ActivityType[], today: string): VoiceResult {
-  const t = numberWordsToDigits(raw.toLowerCase().replace(/[-,]/g, ' ').replace(/\s+/g, ' ').trim())
+  const t = numberWordsToDigits(
+    raw
+      .toLowerCase()
+      .replace(/o['’]\s?clock/g, 'oclock')
+      // "2:45-6:15" and "2 pm – 4 pm" are ranges: keep the dash's meaning before dashes become spaces
+      .replace(/(\d|[ap]\.?m\.?)\s*[-–—]\s*(\d)/g, '$1 to $2')
+      .replace(/[-–—,]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim(),
+  )
   if (!t) return { ok: false, reason: 'Say or type what you did first.' }
 
   const found = findActivities(t, activities)
@@ -165,7 +236,8 @@ export function parseVoiceLog(raw: string, activities: ActivityType[], today: st
   const said = parseIntensity(t)
 
   let parts: VoiceDraft['parts']
-  let durationMin = parseDuration(t)
+  const range = parseTimeRange(t)
+  let durationMin = range?.durationMin ?? parseDuration(t)
   if (activityType === 'mtb') {
     const { up, down } = ridePartMinutes(t)
     if (up != null || down != null) {
@@ -176,7 +248,7 @@ export function parseVoiceLog(raw: string, activities: ActivityType[], today: st
       durationMin = (up ?? 0) + (down ?? 0)
     }
   }
-  if (!durationMin || durationMin < 5) return { ok: false, reason: 'I didn’t catch how long. Say it like “two hours” or “45 minutes”.' }
+  if (!durationMin || durationMin < 5) return { ok: false, reason: 'I didn’t catch how long. Say it like “two hours”, “45 minutes” or “from 2 to 4 pm”.' }
   if (durationMin > 600) return { ok: false, reason: 'That’s over ten hours. Please check the length.' }
 
   const rpeMatch = /\b(?:rpe|effort)\s*(?:of\s*)?(\d{1,2})\b/.exec(t) ?? /\b(\d{1,2})\s*(?:out of|\/)\s*10\b/.exec(t)
@@ -189,7 +261,7 @@ export function parseVoiceLog(raw: string, activities: ActivityType[], today: st
     intensity: parts ? (parts.climb.min && parts.descent.min ? harder(parts.climb.intensity, parts.descent.intensity) : (parts.climb.min ? parts.climb : parts.descent).intensity) : (said ?? def),
     ...(parts ? { parts } : {}),
     ...(!parts && rpe != null ? { rpe } : {}),
-    ...(parseStart(t) ? { startHm: parseStart(t) } : {}),
+    ...(range ? { startHm: range.startHm } : parseStart(t) ? { startHm: parseStart(t) } : {}),
   }
   return { ok: true, draft }
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { protocolV1 } from '../protocol.v1'
 import type { ActivityKey } from '../types'
-import { numberWordsToDigits, parseDate, parseDuration, parseStart, parseVoiceLog } from '../voice'
+import { numberWordsToDigits, parseDate, parseDuration, parseStart, parseTimeRange, parseVoiceLog } from '../voice'
 
 const TODAY = '2026-11-18' // a Wednesday
 const A = protocolV1.activityTypes
@@ -41,7 +41,48 @@ describe('dates and times', () => {
   })
 })
 
+describe('start and end times', () => {
+  it.each([
+    ['from 2:45 p.m. to 6:15 p.m.', '14:45', 210],
+    ['from 2:45 pm to 6:15 pm', '14:45', 210],
+    ['from 2:45 to 6:15 pm', '14:45', 210],
+    ['2:45 until 6:15', '14:45', 210],
+    ['between 2 and 4 pm', '14:00', 120],
+    ['from 11 to 1 pm', '11:00', 120],
+    ['from 11 am to 1', '11:00', 120],
+    ['from 9 to 11', '09:00', 120],
+    ['from 10 to 1', '10:00', 180],
+    ['from 7 to 9', '19:00', 120],
+    ['from 6 am to 7:30', '06:00', 90],
+    ['from noon to 2', '12:00', 120],
+    ['from 12 to 2', '12:00', 120],
+    ['11 pm to 1 am', '23:00', 120],
+    ['from 18:00 to 19:30', '18:00', 90],
+    ['from 2 45 to 6 15', '14:45', 210],
+  ])('%s → starts %s, %i min', (t, start, min) => expect(parseTimeRange(t)).toEqual({ startHm: start, durationMin: min }))
+  it('leaves plain numbers alone', () => {
+    expect(parseTimeRange('2 to 3')).toBeUndefined()
+    expect(parseTimeRange('mtb 45 up and 30 down')).toBeUndefined()
+    expect(parseTimeRange('from 3 to 3')).toBeUndefined()
+  })
+})
+
 describe('whole sentences', () => {
+  it('pickleball from 2:45 p.m. to 6:15 p.m. yesterday', () => {
+    expect(draft('Pickleball from 2:45 p.m. to 6:15 p.m. yesterday')).toMatchObject({
+      activityType: 'pickleball', durationMin: 210, startHm: '14:45', date: '2026-11-17', intensity: 'moderate',
+    })
+  })
+  it('reads number words, dashes and o’clock in a range', () => {
+    expect(draft('pickleball from two forty five to six fifteen yesterday')).toMatchObject({ durationMin: 210, startHm: '14:45' })
+    expect(draft('pickleball 2:45-6:15 pm')).toMatchObject({ durationMin: 210, startHm: '14:45' })
+    expect(draft('pickleball 2 pm – 4 pm')).toMatchObject({ durationMin: 120, startHm: '14:00' })
+    expect(draft("strength from 6 o'clock to 7 o'clock")).toMatchObject({ durationMin: 60, startHm: '18:00' })
+    expect(draft('bike commute from 8:10 am to 8:35 am')).toMatchObject({ activityType: 'bike_commute', durationMin: 25, startHm: '08:10' })
+  })
+  it('a ride split into up and down still uses the up and down minutes', () => {
+    expect(draft('mountain bike from 9 am to 11 am 60 up 30 down')).toMatchObject({ durationMin: 90, startHm: '09:00' })
+  })
   it('pickleball, two hours, moderate, yesterday', () => {
     expect(draft('pickleball two hours moderate yesterday')).toMatchObject({ activityType: 'pickleball', durationMin: 120, intensity: 'moderate', date: '2026-11-17' })
   })
